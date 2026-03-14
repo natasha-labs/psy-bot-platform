@@ -1,88 +1,27 @@
 from collections import Counter
+from tests.archetype.questions import questions
 
-from tests.archetype.questions import questions as archetype_questions
-
-
-CATEGORY_LABELS = {
-    "leader": "Лидерство",
-    "observer": "Наблюдение",
-    "supporter": "Поддержка",
-    "free": "Свобода",
-}
-
-ARCHETYPE_TYPES = {
+ARCHETYPE_LABELS = {
     "leader": "Лидер",
     "observer": "Наблюдатель",
-    "supporter": "Поддерживающий",
-    "free": "Свободный",
+    "support": "Поддержка",
+    "freedom": "Свобода",
 }
 
 
-def get_option_text(option):
-    return option
-
-
-def get_option_value(option):
-    mapping = {
-        "берёшь инициативу на себя": "leader",
-        "действуешь быстро": "leader",
-        "берёшь руководство ситуацией": "leader",
-        "влиять на решения": "leader",
-        "решаешь быстро": "leader",
-        "предлагаешь решение": "leader",
-        "вести процесс": "leader",
-        "берёшь контроль": "leader",
-        "хочешь реализовать её": "leader",
-        "пытаешься направить разговор": "leader",
-
-        "наблюдаешь и присматриваешься": "observer",
-        "анализируешь": "observer",
-        "наблюдаешь и оцениваешь": "observer",
-        "понимать процессы": "observer",
-        "сначала собираешь информацию": "observer",
-        "слушаешь и наблюдаешь": "observer",
-        "разобраться в деталях": "observer",
-        "наблюдаешь": "observer",
-        "хочешь понять её глубже": "observer",
-        "слушаешь и анализируешь": "observer",
-
-        "стараешься поддержать атмосферу": "supporter",
-        "ищешь, кого поддержать": "supporter",
-        "пытаешься примирить": "supporter",
-        "помогать людям": "supporter",
-        "советуешься с людьми": "supporter",
-        "поддерживаешь эмоционально": "supporter",
-        "работать с людьми": "supporter",
-        "держишь контакт с людьми": "supporter",
-        "хочешь обсудить её": "supporter",
-        "сглаживаешь конфликт": "supporter",
-
-        "держишь дистанцию": "free",
-        "сохраняешь свободу действий": "free",
-        "отстраняешься": "free",
-        "работать самостоятельно": "free",
-        "оставляешь себе пространство выбора": "free",
-        "даёшь пространство": "free",
-        "делать по-своему": "free",
-        "сохраняешь независимость": "free",
-        "оставляешь её себе": "free",
-        "отходишь в сторону": "free",
-    }
-    return mapping[option]
-
-
-def calculate_profile(answer_values):
+def build_result(answer_values):
     counts = Counter(answer_values)
 
-    for key in CATEGORY_LABELS:
+    for key in ARCHETYPE_LABELS:
         if key not in counts:
             counts[key] = 0
 
-    total = sum(counts.values())
+    total = sum(counts.values()) or 1
 
-    percentages = {}
-    for key in CATEGORY_LABELS:
-        percentages[key] = 0 if total == 0 else round(counts[key] / total * 100)
+    percentages = {
+        key: round(counts[key] / total * 100)
+        for key in ARCHETYPE_LABELS
+    }
 
     sorted_profiles = sorted(
         percentages.items(),
@@ -93,125 +32,16 @@ def calculate_profile(answer_values):
     main_type = sorted_profiles[0][0]
     second_type = sorted_profiles[1][0]
 
-    return percentages, main_type, second_type
-
-
-def build_type_description(main_type):
-    if main_type == "leader":
-        return (
-            "Этот тип личности тянется к влиянию, движению и внутренней опоре.\n"
-            "Такой человек часто чувствует потребность направлять процесс, принимать решения и брать ответственность."
-        )
-
-    if main_type == "observer":
-        return (
-            "Этот тип личности сначала смотрит, чувствует контекст и только потом действует.\n"
-            "Ему важно понять глубину происходящего и увидеть скрытый смысл ситуации."
-        )
-
-    if main_type == "supporter":
-        return (
-            "Этот тип личности ориентирован на контакт, тепло и поддержку.\n"
-            "Такой человек тонко чувствует других и часто становится эмоциональной опорой для окружающих."
-        )
-
     return (
-        "Этот тип личности особенно ценит пространство, независимость и внутреннюю честность.\n"
-        "Ему важно сохранять право быть собой и не растворяться в чужих ожиданиях."
-    )
-
-
-def build_main_interpretation(main_type):
-    if main_type == "leader":
-        return (
-            "🔎 *ВЕДУЩАЯ ТЕМА АРХЕТИПА*\n"
-            "Лидерство и влияние\n\n"
-            "Похоже, вы естественно тянетесь к позиции, где можно влиять, вести и задавать направление.\n\n"
-            "Что это может значить:\n"
-            "• вам легче включаться, когда есть цель и движение\n"
-            "• внутри есть сильная опора на решение и действие\n"
-            "• вам может быть трудно долго находиться в пассивной роли\n\n"
-            "Точка роста:\n"
-            "не только вести, но и иногда разрешать себе не знать ответ сразу."
-        )
-
-    if main_type == "observer":
-        return (
-            "🔎 *ВЕДУЩАЯ ТЕМА АРХЕТИПА*\n"
-            "Наблюдение и глубина\n\n"
-            "Похоже, вы лучше всего раскрываетесь через наблюдение, понимание и внутренний анализ.\n\n"
-            "Что это может значить:\n"
-            "• вам важно сначала почувствовать контекст\n"
-            "• вы замечаете детали, которые другие могут пропустить\n"
-            "• перед действием вам нужно внутреннее понимание\n\n"
-            "Точка роста:\n"
-            "не застревать в наблюдении и иногда идти в действие чуть раньше."
-        )
-
-    if main_type == "supporter":
-        return (
-            "🔎 *ВЕДУЩАЯ ТЕМА АРХЕТИПА*\n"
-            "Поддержка и контакт\n\n"
-            "Похоже, ваша сильная сторона — создавать тепло, удерживать связь и поддерживать людей рядом.\n\n"
-            "Что это может значить:\n"
-            "• вы тонко чувствуете эмоциональную атмосферу\n"
-            "• рядом с вами людям легче раскрываться\n"
-            "• вам естественно быть опорой и заботой\n\n"
-            "Точка роста:\n"
-            "не забывать о себе, пока поддерживаете других."
-        )
-
-    return (
-        "🔎 *ВЕДУЩАЯ ТЕМА АРХЕТИПА*\n"
-        "Свобода и дистанция\n\n"
-        "Похоже, для вас особенно важны внутреннее пространство, самостоятельность и право быть собой.\n\n"
-        "Что это может значить:\n"
-        "• вам трудно находиться в слишком тесных рамках\n"
-        "• важна независимость решений и ощущение свободы\n"
-        "• иногда дистанция становится способом сохранить себя\n\n"
-        "Точка роста:\n"
-        "не путать свободу с изоляцией и оставлять место для близости."
-    )
-
-
-def build_second_interpretation(second_type):
-    if second_type == "leader":
-        return "Второй слой архетипа связан с лидерством: внутри есть стремление влиять, вести и принимать решения."
-    if second_type == "observer":
-        return "Второй слой архетипа связан с наблюдением: внутри есть сильная аналитическая и чувствующая часть."
-    if second_type == "supporter":
-        return "Второй слой архетипа связан с поддержкой: внутри есть тепло, эмпатия и готовность быть опорой."
-    return "Второй слой архетипа связан со свободой: внутри есть сильная потребность в независимости и собственном пространстве."
-
-
-def build_result(answer_values):
-    percentages, main_type, second_type = calculate_profile(answer_values)
-
-    type_name = ARCHETYPE_TYPES[main_type]
-    type_description = build_type_description(main_type)
-    main_text = build_main_interpretation(main_type)
-    second_text = build_second_interpretation(second_type)
-
-    profile_block = (
-        f"Лидерство — {percentages['leader']}%\n"
-        f"Наблюдение — {percentages['observer']}%\n"
-        f"Поддержка — {percentages['supporter']}%\n"
-        f"Свобода — {percentages['free']}%"
-    )
-
-    return (
-        f"✨ *ТВОЙ ТИП АРХЕТИПА*\n"
-        f"{type_name}\n\n"
-        f"{type_description}\n\n"
-        f"━━━━━━━━━━━━━━\n\n"
-        f"{main_text}\n\n"
-        f"━━━━━━━━━━━━━━\n\n"
-        f"📊 *ПРОФИЛЬ АРХЕТИПА*\n"
-        f"{profile_block}\n\n"
-        f"━━━━━━━━━━━━━━\n\n"
-        f"🌗 *ВТОРОЙ СЛОЙ АРХЕТИПА*\n"
-        f"{CATEGORY_LABELS[second_type]}\n"
-        f"{second_text}"
+        f"✨ **ТВОЙ ТИП АРХЕТИПА**\n"
+        f"{ARCHETYPE_LABELS[main_type]}\n\n"
+        f"📊 **ПРОФИЛЬ АРХЕТИПА**\n"
+        f"Лидер — {percentages['leader']}%\n"
+        f"Наблюдатель — {percentages['observer']}%\n"
+        f"Поддержка — {percentages['support']}%\n"
+        f"Свобода — {percentages['freedom']}%\n\n"
+        f"🌙 **ВТОРОЙ СЛОЙ АРХЕТИПА**\n"
+        f"{ARCHETYPE_LABELS[second_type]}"
     )
 
 
@@ -219,17 +49,14 @@ TEST_DEF = {
     "key": "archetype",
     "title": "Архетип личности",
     "intro_text": (
-        "✨ *Архетип личности*\n\n"
-        "Этот тест помогает увидеть ваш ведущий стиль поведения, способ взаимодействия с миром "
-        "и внутреннюю роль, через которую вы чаще всего проявляетесь.\n\n"
-        "*Как отвечать:*\n"
-        "Читайте вопрос и выбирайте тот вариант, который ближе всего вам.\n\n"
-        "Здесь нет правильных или неправильных ответов.\n"
-        "Важно отвечать не «как лучше», а как для вас естественно.\n\n"
-        "Нажмите *Поехали*, чтобы начать тест."
+        "✨ **Архетип личности**\n\n"
+        "Этот тест помогает увидеть ваш ведущий стиль поведения, "
+        "способ взаимодействия с миром и внутреннюю роль.\n\n"
+        "**Как отвечать:**\n"
+        "Читайте вопрос и выбирайте тот вариант, который ближе всего вам."
     ),
-    "questions": archetype_questions,
-    "get_option_text": get_option_text,
-    "get_option_value": get_option_value,
+    "questions": questions,
+    "get_option_text": lambda option: option["text"],
+    "get_option_value": lambda option: option["value"],
     "build_result": build_result,
 }
