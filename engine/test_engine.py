@@ -46,20 +46,14 @@ def build_option_cards(question, get_option_text):
 def get_question_keyboard(question):
     rows = []
 
-    labels = [
-        "① Вариант 1",
-        "② Вариант 2",
-        "③ Вариант 3",
-        "④ Вариант 4",
-        "⑤ Вариант 5",
-        "⑥ Вариант 6",
-    ]
+    for option_index, option in enumerate(question["options"]):
 
-    for option_index, _ in enumerate(question["options"]):
+        text = option["text"] if isinstance(option, dict) else option
+
         rows.append(
             [
                 InlineKeyboardButton(
-                    labels[option_index],
+                    text,
                     callback_data=f"ans:{option_index}"
                 )
             ]
