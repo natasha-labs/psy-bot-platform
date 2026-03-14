@@ -1,6 +1,7 @@
 from collections import Counter
 from tests.archetype.questions import questions
 
+
 ARCHETYPE_LABELS = {
     "leader": "Лидер",
     "observer": "Наблюдатель",
@@ -35,11 +36,13 @@ def build_result(answer_values):
     return (
         f"✨ **ТВОЙ ТИП АРХЕТИПА**\n"
         f"{ARCHETYPE_LABELS[main_type]}\n\n"
+
         f"📊 **ПРОФИЛЬ АРХЕТИПА**\n"
         f"Лидер — {percentages['leader']}%\n"
         f"Наблюдатель — {percentages['observer']}%\n"
         f"Поддержка — {percentages['support']}%\n"
         f"Свобода — {percentages['freedom']}%\n\n"
+
         f"🌙 **ВТОРОЙ СЛОЙ АРХЕТИПА**\n"
         f"{ARCHETYPE_LABELS[second_type]}"
     )
