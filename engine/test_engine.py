@@ -47,9 +47,7 @@ def get_question_keyboard(question):
     rows = []
 
     for option_index, option in enumerate(question["options"]):
-
         text = option["text"] if isinstance(option, dict) else option
-
         rows.append(
             [
                 InlineKeyboardButton(
@@ -64,13 +62,11 @@ def get_question_keyboard(question):
 
 def build_question_text(title: str, questions, index: int, get_option_text) -> str:
     question = questions[index]
-    options_block = build_option_cards(question, get_option_text)
 
     return (
         f"Тест: {title}\n\n"
         f"Вопрос {index + 1} из {len(questions)}:\n"
-        f"{question['text']}\n\n"
-        f"{options_block}"
+        f"{question['text']}"
     )
 
 
