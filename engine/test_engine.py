@@ -29,21 +29,54 @@ def get_intro_keyboard(test_key: str):
     )
 
 
-def get_question_keyboard(question, get_option_text):
-    rows = []
+def get_choice_emoji(index: int) -> str:
+    emojis = ["①", "②", "③", "④", "⑤", "⑥"]
+    return emojis[index] if index < len(emojis) else f"{index + 1}."
+
+
+def build_option_cards(question, get_option_text):
+    lines = []
     for option_index, option in enumerate(question["options"]):
+        emoji = get_choice_emoji(option_index)
+        text = get_option_text(option)
+        lines.append(f"{emoji} {text}")
+    return "\n\n".join(lines)
+
+
+def get_question_keyboard(question):
+    rows = []
+
+    labels = [
+        "① Вариант 1",
+        "② Вариант 2",
+        "③ Вариант 3",
+        "④ Вариант 4",
+        "⑤ Вариант 5",
+        "⑥ Вариант 6",
+    ]
+
+    for option_index, _ in enumerate(question["options"]):
         rows.append(
-            [InlineKeyboardButton(get_option_text(option), callback_data=f"ans:{option_index}")]
+            [
+                InlineKeyboardButton(
+                    labels[option_index],
+                    callback_data=f"ans:{option_index}"
+                )
+            ]
         )
+
     return InlineKeyboardMarkup(rows)
 
 
-def build_question_text(title: str, questions, index: int) -> str:
+def build_question_text(title: str, questions, index: int, get_option_text) -> str:
     question = questions[index]
+    options_block = build_option_cards(question, get_option_text)
+
     return (
         f"Тест: {title}\n\n"
         f"Вопрос {index + 1} из {len(questions)}:\n"
-        f"{question['text']}"
+        f"{question['text']}\n\n"
+        f"{options_block}"
     )
 
 
@@ -52,8 +85,13 @@ async def send_question(update, context, test_def, index: int):
 
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text=build_question_text(test_def["title"], test_def["questions"], index),
-        reply_markup=get_question_keyboard(question, test_def["get_option_text"]),
+        text=build_question_text(
+            test_def["title"],
+            test_def["questions"],
+            index,
+            test_def["get_option_text"],
+        ),
+        reply_markup=get_question_keyboard(question),
     )
 
 
@@ -155,7 +193,7 @@ async def handle_nav_text(update, context, main_menu_markup, tests):
         return
 
     await update.message.reply_text(
-        "Для ответа используйте кнопки в сообщении с вопросом.",
+        "Для ответа используйте кнопки под вопросом.",
         reply_markup=get_nav_menu() if stage == "questions" else main_menu_markup,
     )
 
