@@ -13,7 +13,7 @@ from engine.test_engine import start_test, handle_nav_text, handle_callback
 from tests.registry import TESTS
 from storage.results_store import get_user_results
 
-TOKEN = "8691203465:AAEpm9I_xLJQXORp7OQJwiPdEI4UNn2AXWU"
+TOKEN = os.getenv("BOT_TOKEN")
 
 if not TOKEN:
     raise RuntimeError("BOT_TOKEN is not set")
