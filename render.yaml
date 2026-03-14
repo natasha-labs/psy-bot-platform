@@ -1,6 +1,6 @@
 services:
   - type: worker
-    name: psy-bot-platform
+    name: lichny-kod-bot
     runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: python main.py
