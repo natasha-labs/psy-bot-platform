@@ -43,11 +43,33 @@ def build_option_cards(question, get_option_text):
     return "\n\n".join(lines)
 
 
+def wrap_button_text(text, max_len=24):
+    words = text.split()
+    lines = []
+    current = ""
+
+    for word in words:
+        test = f"{current} {word}".strip()
+        if len(test) <= max_len:
+            current = test
+        else:
+            if current:
+                lines.append(current)
+            current = word
+
+    if current:
+        lines.append(current)
+
+    return "\n".join(lines[:2])
+
+
 def get_question_keyboard(question):
     rows = []
 
     for option_index, option in enumerate(question["options"]):
         text = option["text"] if isinstance(option, dict) else option
+        text = wrap_button_text(text)
+
         rows.append(
             [
                 InlineKeyboardButton(
