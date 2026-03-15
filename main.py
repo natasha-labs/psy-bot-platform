@@ -11,9 +11,10 @@ from telegram.ext import (
 
 from engine.test_engine import start_test, handle_nav_text, handle_callback
 from tests.registry import TESTS
-from storage.results_store import get_user_results
+from storage.results_store import get_user_results, delete_user_results
 
 TOKEN = os.getenv("BOT_TOKEN")
+ADMIN_USER_ID = os.getenv("ADMIN_USER_ID")
 
 if not TOKEN:
     raise RuntimeError("BOT_TOKEN is not set")
@@ -40,13 +41,24 @@ BUTTON_TO_TEST_KEY = {
 }
 
 
+def is_admin(user_id) -> bool:
+    if not ADMIN_USER_ID:
+        return False
+    return str(user_id) == str(ADMIN_USER_ID)
+
+
 def has_full_access(results: dict) -> bool:
     required = {"shadow", "archetype", "anxiety"}
     return required.issubset(set(results.keys()))
 
 
-def get_main_menu_by_results(results: dict):
-    menu = FULL_MENU if has_full_access(results) else ONBOARDING_MENU
+def get_main_menu_by_results(results: dict, user_id):
+    base_menu = FULL_MENU if has_full_access(results) else ONBOARDING_MENU
+    menu = [row[:] for row in base_menu]
+
+    if is_admin(user_id):
+        menu.append(["Сбросить мои тесты"])
+
     return ReplyKeyboardMarkup(menu, resize_keyboard=True)
 
 
@@ -77,11 +89,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
 
     user = update.effective_user
-    results = get_user_results(user.id if user else "unknown")
+    user_id = user.id if user else "unknown"
+    results = get_user_results(user_id)
 
     await update.message.reply_text(
         "Добро пожаловать в систему «Код личности».",
-        reply_markup=get_main_menu_by_results(results),
+        reply_markup=get_main_menu_by_results(results, user_id),
     )
 
 
@@ -92,10 +105,30 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id if user else "unknown"
     results = get_user_results(user_id)
-    main_menu_markup = get_main_menu_by_results(results)
+    main_menu_markup = get_main_menu_by_results(results, user_id)
 
     if current_test:
         await handle_nav_text(update, context, main_menu_markup, TESTS)
+        return
+
+    if text == "Сбросить мои тесты":
+        if not is_admin(user_id):
+            await update.message.reply_text(
+                "Эта функция доступна только админу.",
+                reply_markup=main_menu_markup,
+            )
+            return
+
+        delete_user_results(user_id)
+        context.user_data.clear()
+
+        fresh_results = get_user_results(user_id)
+        fresh_menu = get_main_menu_by_results(fresh_results, user_id)
+
+        await update.message.reply_text(
+            "Ваши результаты удалены. Теперь бот снова считает вас новым пользователем.",
+            reply_markup=fresh_menu,
+        )
         return
 
     if text == "Начать исследование":
@@ -154,8 +187,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_all_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    results = get_user_results(user.id if user else "unknown")
-    main_menu_markup = get_main_menu_by_results(results)
+    user_id = user.id if user else "unknown"
+    results = get_user_results(user_id)
+    main_menu_markup = get_main_menu_by_results(results, user_id)
     await handle_callback(update, context, main_menu_markup, TESTS)
 
 
