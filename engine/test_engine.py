@@ -20,10 +20,10 @@ def get_nav_menu():
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 
-def get_intro_keyboard(test_key: str):
+def get_intro_keyboard(test_key: str, button_text: str = "Поехали"):
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("Поехали", callback_data=f"start:{test_key}")],
+            [InlineKeyboardButton(button_text, callback_data=f"start:{test_key}")],
             [InlineKeyboardButton("Назад", callback_data="main_menu")],
         ]
     )
@@ -122,9 +122,11 @@ async def start_test(update, context, test_key: str, test_def):
     context.user_data["answers"] = []
     context.user_data["test_message_id"] = None
 
+    intro_button_text = test_def.get("intro_button_text", "Поехали")
+
     await update.message.reply_text(
         test_def["intro_text"],
-        reply_markup=get_intro_keyboard(test_key),
+        reply_markup=get_intro_keyboard(test_key, intro_button_text),
         parse_mode="Markdown",
     )
 
@@ -193,7 +195,7 @@ async def handle_nav_text(update, context, main_menu_markup, tests):
     if text == RESTART_BUTTON:
         if stage != "questions":
             await update.message.reply_text(
-                "Сначала нажмите «Поехали».",
+                "Сначала нажмите «Начать тест».",
                 reply_markup=main_menu_markup,
             )
             return
