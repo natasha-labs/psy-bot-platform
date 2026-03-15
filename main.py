@@ -20,18 +20,10 @@ if not TOKEN:
 
 
 MAIN_MENU = [
-    ["Код Тени"],
-    ["Архетип личности"],
-    ["Уровень тревоги"],
+    ["Начать исследование"],
     ["Мои результаты"],
     ["О тесте"],
 ]
-
-BUTTON_TO_TEST_KEY = {
-    "Код Тени": "shadow",
-    "Архетип личности": "archetype",
-    "Уровень тревоги": "anxiety",
-}
 
 
 def get_main_menu():
@@ -42,10 +34,10 @@ def build_results_text(results: dict) -> str:
     if not results:
         return (
             "У вас пока нет сохранённых результатов.\n\n"
-            "Пройдите любой тест, и результат появится здесь."
+            "Начните исследование, и результаты появятся здесь."
         )
 
-    lines = ["**Мои результаты**\n"]
+    lines = ["*Мои результаты*\n"]
     ordered_keys = ["shadow", "archetype", "anxiety"]
 
     for key in ordered_keys:
@@ -53,7 +45,7 @@ def build_results_text(results: dict) -> str:
             continue
 
         item = results[key]
-        lines.append(f"**{item['title']}**")
+        lines.append(f"*{item['title']}*")
         lines.append(f"Дата: {item['saved_at']}")
         lines.append(item["result_text"])
         lines.append("━━━━━━━━━━━━━━")
@@ -64,7 +56,8 @@ def build_results_text(results: dict) -> str:
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     await update.message.reply_text(
-        "Добро пожаловать в систему «Код личности».\n\nВыберите тест:",
+        "Добро пожаловать в систему «Код личности».\n\n"
+        "Начните исследование себя.",
         reply_markup=get_main_menu(),
     )
 
@@ -77,9 +70,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await handle_nav_text(update, context, get_main_menu(), TESTS)
         return
 
-    if text in BUTTON_TO_TEST_KEY:
-        test_key = BUTTON_TO_TEST_KEY[text]
-        await start_test(update, context, test_key, TESTS[test_key])
+    if text == "Начать исследование":
+        await start_test(update, context, "shadow", TESTS["shadow"])
         return
 
     if text == "Мои результаты":
@@ -96,18 +88,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == "О тесте":
         await update.message.reply_text(
             "Это бот психологических тестов.\n\n"
-            "Здесь можно пройти три теста:\n\n"
-            "1. Код Тени — помогает увидеть скрытые психологические темы.\n"
-            "2. Архетип личности — показывает основной стиль поведения и внутреннюю роль.\n"
-            "3. Уровень тревоги — помогает понять текущий уровень внутреннего напряжения.\n\n"
-            "Результаты сохраняются в разделе «Мои результаты».\n"
-            "Выберите тест в меню ниже.",
+            "Сначала вы проходите «Код Тени», а затем бот предлагает "
+            "следующие тесты по цепочке исследования.\n\n"
+            "Внутри доступны:\n"
+            "• Код Тени\n"
+            "• Архетип личности\n"
+            "• Уровень тревоги\n\n"
+            "Все результаты сохраняются в разделе «Мои результаты».",
             reply_markup=get_main_menu(),
         )
         return
 
     await update.message.reply_text(
-        "Выберите тест кнопкой ниже.",
+        "Используйте кнопки меню ниже.",
         reply_markup=get_main_menu(),
     )
 
