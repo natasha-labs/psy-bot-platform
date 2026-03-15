@@ -69,6 +69,19 @@ def get_question_keyboard(question):
     return InlineKeyboardMarkup(rows)
 
 
+def get_share_keyboard(share_text):
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "Поделиться результатом",
+                    switch_inline_query=share_text,
+                )
+            ]
+        ]
+    )
+
+
 async def send_or_edit_question(update, context, test_def, index: int):
     question = test_def["questions"][index]
     question_text = build_question_text(
@@ -280,7 +293,14 @@ async def handle_callback(update, context, main_menu_markup, tests):
     new_index = context.user_data["index"]
 
     if new_index >= len(test_def["questions"]):
-        result_text = test_def["build_result"](context.user_data["answers"])
+        result_payload = test_def["build_result"](context.user_data["answers"])
+
+        if isinstance(result_payload, dict):
+            result_text = result_payload.get("text", "")
+            share_text = result_payload.get("share_text")
+        else:
+            result_text = result_payload
+            share_text = None
 
         user = update.effective_user
         if user:
@@ -291,6 +311,7 @@ async def handle_callback(update, context, main_menu_markup, tests):
                 result_text=result_text,
             )
 
+        result_keyboard = get_share_keyboard(share_text) if share_text else None
         test_message_id = context.user_data.get("test_message_id")
         context.user_data.clear()
 
@@ -301,18 +322,21 @@ async def handle_callback(update, context, main_menu_markup, tests):
                     message_id=test_message_id,
                     text=result_text,
                     parse_mode="Markdown",
+                    reply_markup=result_keyboard,
                 )
             except Exception:
                 await context.bot.send_message(
                     chat_id=update.effective_chat.id,
                     text=result_text,
                     parse_mode="Markdown",
+                    reply_markup=result_keyboard,
                 )
         else:
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=result_text,
                 parse_mode="Markdown",
+                reply_markup=result_keyboard,
             )
 
         await context.bot.send_message(
