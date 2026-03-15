@@ -81,19 +81,19 @@ def get_share_keyboard(share_text):
     )
 
 
-def get_continue_keyboard(user_id, current_test_key):
+def has_full_access(results: dict) -> bool:
+    required = {"shadow", "archetype", "anxiety"}
+    return required.issubset(set(results.keys()))
+
+
+def get_remaining_tests_for_user(user_id, current_test_key=None):
     results = get_user_results(user_id)
     completed = set(results.keys())
 
-    if current_test_key == "shadow":
-        return InlineKeyboardMarkup(
-            [
-                [InlineKeyboardButton("Узнать свой Архетип", callback_data="next:archetype")],
-                [InlineKeyboardButton("Проверить уровень тревоги", callback_data="next:anxiety")],
-            ]
-        )
-
     remaining = []
+
+    if "shadow" not in completed and current_test_key != "shadow":
+        remaining.append(("Код Тени", "shadow"))
 
     if "archetype" not in completed and current_test_key != "archetype":
         remaining.append(("Узнать свой Архетип", "archetype"))
@@ -101,40 +101,32 @@ def get_continue_keyboard(user_id, current_test_key):
     if "anxiety" not in completed and current_test_key != "anxiety":
         remaining.append(("Проверить уровень тревоги", "anxiety"))
 
+    return remaining
+
+
+def get_continue_keyboard(user_id, current_test_key):
+    remaining = get_remaining_tests_for_user(user_id, current_test_key)
+
+    if not remaining:
+        return None
+
+    rows = []
+    for text, key in remaining:
+        rows.append([InlineKeyboardButton(text, callback_data=f"next:{key}")])
+
+    return InlineKeyboardMarkup(rows)
+
+
+def build_continue_text(user_id, current_test_key):
+    remaining = get_remaining_tests_for_user(user_id, current_test_key)
+
+    if not remaining:
+        return "Все тесты пройдены. Результаты сохранены в разделе «Мои результаты»."
+
     if len(remaining) == 1:
-        text, key = remaining[0]
-        return InlineKeyboardMarkup(
-            [[InlineKeyboardButton(text, callback_data=f"next:{key}")]]
-        )
-
-    if len(remaining) > 1:
-        rows = []
-        for text, key in remaining:
-            rows.append([InlineKeyboardButton(text, callback_data=f"next:{key}")])
-        return InlineKeyboardMarkup(rows)
-
-    return None
-
-
-def build_continue_text(current_test_key, user_id):
-    results = get_user_results(user_id)
-    completed = set(results.keys())
-
-    if current_test_key == "shadow":
-        return "Продолжить исследование себя"
-
-    remaining = 0
-    for key in ["shadow", "archetype", "anxiety"]:
-        if key not in completed:
-            remaining += 1
-
-    if remaining == 1:
         return "Остался последний шаг исследования"
 
-    if remaining > 1:
-        return "Продолжить исследование себя"
-
-    return "Исследование завершено"
+    return "Продолжить исследование себя"
 
 
 async def send_intro_screen(update, context, test_key: str, test_def):
@@ -322,8 +314,18 @@ async def send_result_and_continue(update, context, main_menu_markup, test_def, 
             reply_markup=result_keyboard,
         )
 
+    results_after_save = get_user_results(user_id)
+
+    if has_full_access(results_after_save):
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="Все тесты пройдены. Теперь в меню доступны все тесты и раздел «Мои результаты».",
+            reply_markup=main_menu_markup,
+        )
+        return
+
     continue_keyboard = get_continue_keyboard(user_id, test_def["key"])
-    continue_text = build_continue_text(test_def["key"], user_id)
+    continue_text = build_continue_text(user_id, test_def["key"])
 
     if continue_keyboard:
         await context.bot.send_message(
@@ -335,7 +337,7 @@ async def send_result_and_continue(update, context, main_menu_markup, test_def, 
 
     await context.bot.send_message(
         chat_id=chat_id,
-        text="Все тесты пройдены. Результаты сохранены в разделе «Мои результаты».",
+        text="Исследование завершено.",
         reply_markup=main_menu_markup,
     )
 
