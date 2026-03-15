@@ -254,9 +254,15 @@ async def handle_callback(update, context, main_menu_markup, tests):
 
     selected_option = current_question["options"][option_index]
     answer_value = test_def["get_option_value"](selected_option)
+    answer_text = test_def["get_option_text"](selected_option)
 
     context.user_data["answers"].append(answer_value)
     context.user_data["index"] = index + 1
+
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=f"Ваш ответ: {answer_text}",
+    )
 
     new_index = context.user_data["index"]
 
