@@ -47,3 +47,15 @@ def save_user_result(user_id, test_key, title, result_text):
 def get_user_results(user_id):
     data = load_results()
     return data.get(str(user_id), {})
+
+
+def delete_user_results(user_id):
+    data = load_results()
+    user_id = str(user_id)
+
+    if user_id in data:
+        del data[user_id]
+        save_results(data)
+        return True
+
+    return False
