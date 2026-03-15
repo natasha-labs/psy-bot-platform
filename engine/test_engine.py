@@ -56,12 +56,11 @@ def get_question_keyboard(question):
 
     for option_index, option in enumerate(question["options"]):
         text = option["text"] if isinstance(option, dict) else option
-
         rows.append(
             [
                 InlineKeyboardButton(
                     text,
-                    callback_data=f"ans:{option_index}"
+                    callback_data=f"ans:{option_index}",
                 )
             ]
         )
@@ -87,17 +86,18 @@ def get_continue_keyboard(user_id, current_test_key):
     completed = set(results.keys())
 
     if current_test_key == "shadow":
-        buttons = [
-            [InlineKeyboardButton("Узнать свой Архетип", callback_data="next:archetype")],
-            [InlineKeyboardButton("Проверить уровень тревоги", callback_data="next:anxiety")],
-        ]
-        return InlineKeyboardMarkup(buttons)
+        return InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton("Узнать свой Архетип", callback_data="next:archetype")],
+                [InlineKeyboardButton("Проверить уровень тревоги", callback_data="next:anxiety")],
+            ]
+        )
 
     remaining = []
-    if "shadow" not in completed:
-        remaining.append(("Код Тени", "shadow"))
+
     if "archetype" not in completed and current_test_key != "archetype":
         remaining.append(("Узнать свой Архетип", "archetype"))
+
     if "anxiety" not in completed and current_test_key != "anxiety":
         remaining.append(("Проверить уровень тревоги", "anxiety"))
 
@@ -107,10 +107,11 @@ def get_continue_keyboard(user_id, current_test_key):
             [[InlineKeyboardButton(text, callback_data=f"next:{key}")]]
         )
 
-    if len(remaining) >= 2:
-        return InlineKeyboardMarkup(
-            [[InlineKeyboardButton(text, callback_data=f"next:{key}")]] for text, key in remaining
-        )
+    if len(remaining) > 1:
+        rows = []
+        for text, key in remaining:
+            rows.append([InlineKeyboardButton(text, callback_data=f"next:{key}")])
+        return InlineKeyboardMarkup(rows)
 
     return None
 
@@ -122,17 +123,36 @@ def build_continue_text(current_test_key, user_id):
     if current_test_key == "shadow":
         return "Продолжить исследование себя"
 
-    remaining_count = 0
+    remaining = 0
     for key in ["shadow", "archetype", "anxiety"]:
         if key not in completed:
-            remaining_count += 1
+            remaining += 1
 
-    if remaining_count == 1:
-        return "Остался последний тест"
-    if remaining_count > 1:
+    if remaining == 1:
+        return "Остался последний шаг исследования"
+
+    if remaining > 1:
         return "Продолжить исследование себя"
 
     return "Исследование завершено"
+
+
+async def send_intro_screen(update, context, test_key: str, test_def):
+    chat_id = update.effective_chat.id
+    intro_button_text = test_def.get("intro_button_text", "Поехали")
+
+    context.user_data["test"] = test_key
+    context.user_data["stage"] = "intro"
+    context.user_data["index"] = 0
+    context.user_data["answers"] = []
+    context.user_data["test_message_id"] = None
+
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=test_def["intro_text"],
+        reply_markup=get_intro_keyboard(test_key, intro_button_text),
+        parse_mode="Markdown",
+    )
 
 
 async def send_or_edit_question(update, context, test_def, index: int):
@@ -169,22 +189,12 @@ async def send_or_edit_question(update, context, test_def, index: int):
 
 
 async def start_test(update, context, test_key: str, test_def):
-    context.user_data["test"] = test_key
-    context.user_data["stage"] = "intro"
-    context.user_data["index"] = 0
-    context.user_data["answers"] = []
-    context.user_data["test_message_id"] = None
-
-    intro_button_text = test_def.get("intro_button_text", "Поехали")
-
-    await update.message.reply_text(
-        test_def["intro_text"],
-        reply_markup=get_intro_keyboard(test_key, intro_button_text),
-        parse_mode="Markdown",
-    )
+    await send_intro_screen(update, context, test_key, test_def)
 
 
 async def begin_test(update, context, test_key: str, test_def):
+    chat_id = update.effective_chat.id
+
     context.user_data["test"] = test_key
     context.user_data["stage"] = "questions"
     context.user_data["index"] = 0
@@ -192,7 +202,7 @@ async def begin_test(update, context, test_key: str, test_def):
     context.user_data["test_message_id"] = None
 
     await context.bot.send_message(
-        chat_id=update.effective_chat.id,
+        chat_id=chat_id,
         text="Тест начат.",
         reply_markup=get_nav_menu(),
     )
@@ -284,13 +294,14 @@ async def send_result_and_continue(update, context, main_menu_markup, test_def, 
 
     result_keyboard = get_share_keyboard(share_text) if share_text else None
     test_message_id = context.user_data.get("test_message_id")
+    chat_id = update.effective_chat.id
 
     context.user_data.clear()
 
     if test_message_id:
         try:
             await context.bot.edit_message_text(
-                chat_id=update.effective_chat.id,
+                chat_id=chat_id,
                 message_id=test_message_id,
                 text=result_text,
                 parse_mode="Markdown",
@@ -298,14 +309,14 @@ async def send_result_and_continue(update, context, main_menu_markup, test_def, 
             )
         except Exception:
             await context.bot.send_message(
-                chat_id=update.effective_chat.id,
+                chat_id=chat_id,
                 text=result_text,
                 parse_mode="Markdown",
                 reply_markup=result_keyboard,
             )
     else:
         await context.bot.send_message(
-            chat_id=update.effective_chat.id,
+            chat_id=chat_id,
             text=result_text,
             parse_mode="Markdown",
             reply_markup=result_keyboard,
@@ -316,16 +327,17 @@ async def send_result_and_continue(update, context, main_menu_markup, test_def, 
 
     if continue_keyboard:
         await context.bot.send_message(
-            chat_id=update.effective_chat.id,
+            chat_id=chat_id,
             text=continue_text,
             reply_markup=continue_keyboard,
         )
-    else:
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="Все тесты пройдены. Результаты сохранены в разделе «Мои результаты».",
-            reply_markup=main_menu_markup,
-        )
+        return
+
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text="Все тесты пройдены. Результаты сохранены в разделе «Мои результаты».",
+        reply_markup=main_menu_markup,
+    )
 
 
 async def handle_callback(update, context, main_menu_markup, tests):
@@ -384,7 +396,7 @@ async def handle_callback(update, context, main_menu_markup, tests):
         except Exception:
             pass
 
-        await start_test(update, context, test_key, tests[test_key])
+        await send_intro_screen(update, context, test_key, tests[test_key])
         return
 
     if not current_test or current_test not in tests:
