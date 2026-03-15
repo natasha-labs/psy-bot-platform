@@ -2,6 +2,7 @@ import os
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
+    CommandHandler,
     MessageHandler,
     CallbackQueryHandler,
     ContextTypes,
@@ -160,6 +161,7 @@ async def handle_all_callbacks(update: Update, context: ContextTypes.DEFAULT_TYP
 
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(handle_all_callbacks))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.run_polling()
