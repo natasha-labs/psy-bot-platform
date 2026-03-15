@@ -36,18 +36,25 @@ def build_progress_bar(current, total):
     return "🟩" * filled + "⬜" * empty
 
 
-def build_question_text(title: str, questions, index: int, get_option_text) -> str:
+def build_question_text(title: str, questions, index: int, get_option_text, last_answer_text=None) -> str:
     question = questions[index]
     total = len(questions)
     current = index + 1
     progress = build_progress_bar(current, total)
 
-    return (
+    parts = []
+
+    if last_answer_text:
+        parts.append(f"Ваш ответ: {last_answer_text}\n")
+
+    parts.append(
         f"Тест: {title}\n\n"
-        f"Вопрос {current} из {total}\n"
+        f"Вопрос {current} / {total}\n"
         f"{progress}\n\n"
         f"{question['text']}"
     )
+
+    return "\n".join(parts)
 
 
 def get_question_keyboard(question):
@@ -68,19 +75,38 @@ def get_question_keyboard(question):
     return InlineKeyboardMarkup(rows)
 
 
-async def send_question(update, context, test_def, index: int):
+async def send_or_edit_question(update, context, test_def, index: int, last_answer_text=None):
     question = test_def["questions"][index]
-
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=build_question_text(
-            test_def["title"],
-            test_def["questions"],
-            index,
-            test_def["get_option_text"],
-        ),
-        reply_markup=get_question_keyboard(question),
+    question_text = build_question_text(
+        test_def["title"],
+        test_def["questions"],
+        index,
+        test_def["get_option_text"],
+        last_answer_text=last_answer_text,
     )
+    keyboard = get_question_keyboard(question)
+
+    chat_id = update.effective_chat.id
+    message_id = context.user_data.get("test_message_id")
+
+    if message_id:
+        try:
+            await context.bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=message_id,
+                text=question_text,
+                reply_markup=keyboard,
+            )
+            return
+        except Exception:
+            pass
+
+    msg = await context.bot.send_message(
+        chat_id=chat_id,
+        text=question_text,
+        reply_markup=keyboard,
+    )
+    context.user_data["test_message_id"] = msg.message_id
 
 
 async def start_test(update, context, test_key: str, test_def):
@@ -88,6 +114,8 @@ async def start_test(update, context, test_key: str, test_def):
     context.user_data["stage"] = "intro"
     context.user_data["index"] = 0
     context.user_data["answers"] = []
+    context.user_data["last_answer_text"] = None
+    context.user_data["test_message_id"] = None
 
     await update.message.reply_text(
         test_def["intro_text"],
@@ -101,13 +129,16 @@ async def begin_test(update, context, test_key: str, test_def):
     context.user_data["stage"] = "questions"
     context.user_data["index"] = 0
     context.user_data["answers"] = []
+    context.user_data["last_answer_text"] = None
+    context.user_data["test_message_id"] = None
 
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Тест начат.",
         reply_markup=get_nav_menu(),
     )
-    await send_question(update, context, test_def, 0)
+
+    await send_or_edit_question(update, context, test_def, 0)
 
 
 async def handle_nav_text(update, context, main_menu_markup, tests):
@@ -147,11 +178,15 @@ async def handle_nav_text(update, context, main_menu_markup, tests):
         if answers:
             answers.pop()
 
-        await update.message.reply_text(
-            "Возвращаемся на предыдущий вопрос.",
-            reply_markup=get_nav_menu(),
+        context.user_data["last_answer_text"] = None
+
+        await send_or_edit_question(
+            update,
+            context,
+            test_def,
+            context.user_data["index"],
+            last_answer_text=None,
         )
-        await send_question(update, context, test_def, context.user_data["index"])
         return
 
     if text == RESTART_BUTTON:
@@ -164,12 +199,15 @@ async def handle_nav_text(update, context, main_menu_markup, tests):
 
         context.user_data["index"] = 0
         context.user_data["answers"] = []
+        context.user_data["last_answer_text"] = None
 
-        await update.message.reply_text(
-            "Тест начат заново.",
-            reply_markup=get_nav_menu(),
+        await send_or_edit_question(
+            update,
+            context,
+            test_def,
+            0,
+            last_answer_text=None,
         )
-        await send_question(update, context, test_def, 0)
         return
 
     if text == TO_TESTS_BUTTON:
@@ -247,22 +285,13 @@ async def handle_callback(update, context, main_menu_markup, tests):
         await query.answer("Такого варианта нет", show_alert=False)
         return
 
-    try:
-        await query.edit_message_reply_markup(reply_markup=None)
-    except Exception:
-        pass
-
     selected_option = current_question["options"][option_index]
     answer_value = test_def["get_option_value"](selected_option)
     answer_text = test_def["get_option_text"](selected_option)
 
     context.user_data["answers"].append(answer_value)
     context.user_data["index"] = index + 1
-
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=f"Ваш ответ: {answer_text}",
-    )
+    context.user_data["last_answer_text"] = answer_text
 
     new_index = context.user_data["index"]
 
@@ -278,14 +307,41 @@ async def handle_callback(update, context, main_menu_markup, tests):
                 result_text=result_text,
             )
 
+        test_message_id = context.user_data.get("test_message_id")
         context.user_data.clear()
+
+        if test_message_id:
+            try:
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=test_message_id,
+                    text=result_text,
+                    parse_mode="Markdown",
+                )
+            except Exception:
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=result_text,
+                    parse_mode="Markdown",
+                )
+        else:
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=result_text,
+                parse_mode="Markdown",
+            )
 
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text=result_text,
-            parse_mode="Markdown",
+            text="Выберите тест:",
             reply_markup=main_menu_markup,
         )
         return
 
-    await send_question(update, context, test_def, new_index)
+    await send_or_edit_question(
+        update,
+        context,
+        test_def,
+        new_index,
+        last_answer_text=answer_text,
+    )
