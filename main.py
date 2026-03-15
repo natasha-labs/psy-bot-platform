@@ -86,6 +86,7 @@ def build_results_text(results: dict) -> str:
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print(update.effective_user.id)
     context.user_data.clear()
 
     user = update.effective_user
