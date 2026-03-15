@@ -18,6 +18,7 @@ TOKEN = os.getenv("BOT_TOKEN")
 if not TOKEN:
     raise RuntimeError("BOT_TOKEN is not set")
 
+
 MAIN_MENU = [
     ["Код Тени"],
     ["Архетип личности"],
@@ -37,14 +38,6 @@ def get_main_menu():
     return ReplyKeyboardMarkup(MAIN_MENU, resize_keyboard=True)
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data.clear()
-    await update.message.reply_text(
-        "Добро пожаловать в систему «Код личности».\n\nВыберите тест:",
-        reply_markup=get_main_menu(),
-    )
-
-
 def build_results_text(results: dict) -> str:
     if not results:
         return (
@@ -52,7 +45,7 @@ def build_results_text(results: dict) -> str:
             "Пройдите любой тест, и результат появится здесь."
         )
 
-    lines = ["*Мои результаты*\n"]
+    lines = ["**Мои результаты**\n"]
     ordered_keys = ["shadow", "archetype", "anxiety"]
 
     for key in ordered_keys:
@@ -60,12 +53,20 @@ def build_results_text(results: dict) -> str:
             continue
 
         item = results[key]
-        lines.append(f"*{item['title']}*")
+        lines.append(f"**{item['title']}**")
         lines.append(f"Дата: {item['saved_at']}")
         lines.append(item["result_text"])
         lines.append("━━━━━━━━━━━━━━")
 
     return "\n".join(lines).strip()
+
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.clear()
+    await update.message.reply_text(
+        "Добро пожаловать в систему «Код личности».\n\nВыберите тест:",
+        reply_markup=get_main_menu(),
+    )
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
