@@ -4,7 +4,7 @@ from telegram import (
     ReplyKeyboardMarkup,
 )
 
-from storage.results_store import save_user_result
+from storage.results_store import save_user_result, get_user_results
 
 BACK_BUTTON = "⬅️ Назад"
 RESTART_BUTTON = "🔄 Пройти тест заново"
@@ -82,6 +82,59 @@ def get_share_keyboard(share_text):
     )
 
 
+def get_continue_keyboard(user_id, current_test_key):
+    results = get_user_results(user_id)
+    completed = set(results.keys())
+
+    if current_test_key == "shadow":
+        buttons = [
+            [InlineKeyboardButton("Узнать свой Архетип", callback_data="next:archetype")],
+            [InlineKeyboardButton("Проверить уровень тревоги", callback_data="next:anxiety")],
+        ]
+        return InlineKeyboardMarkup(buttons)
+
+    remaining = []
+    if "shadow" not in completed:
+        remaining.append(("Код Тени", "shadow"))
+    if "archetype" not in completed and current_test_key != "archetype":
+        remaining.append(("Узнать свой Архетип", "archetype"))
+    if "anxiety" not in completed and current_test_key != "anxiety":
+        remaining.append(("Проверить уровень тревоги", "anxiety"))
+
+    if len(remaining) == 1:
+        text, key = remaining[0]
+        return InlineKeyboardMarkup(
+            [[InlineKeyboardButton(text, callback_data=f"next:{key}")]]
+        )
+
+    if len(remaining) >= 2:
+        return InlineKeyboardMarkup(
+            [[InlineKeyboardButton(text, callback_data=f"next:{key}")]] for text, key in remaining
+        )
+
+    return None
+
+
+def build_continue_text(current_test_key, user_id):
+    results = get_user_results(user_id)
+    completed = set(results.keys())
+
+    if current_test_key == "shadow":
+        return "Продолжить исследование себя"
+
+    remaining_count = 0
+    for key in ["shadow", "archetype", "anxiety"]:
+        if key not in completed:
+            remaining_count += 1
+
+    if remaining_count == 1:
+        return "Остался последний тест"
+    if remaining_count > 1:
+        return "Продолжить исследование себя"
+
+    return "Исследование завершено"
+
+
 async def send_or_edit_question(update, context, test_def, index: int):
     question = test_def["questions"][index]
     question_text = build_question_text(
@@ -154,7 +207,7 @@ async def handle_nav_text(update, context, main_menu_markup, tests):
 
     if not current_test or current_test not in tests:
         await update.message.reply_text(
-            "Выберите тест:",
+            "Начните исследование.",
             reply_markup=main_menu_markup,
         )
         return
@@ -165,7 +218,7 @@ async def handle_nav_text(update, context, main_menu_markup, tests):
         if stage == "intro":
             context.user_data.clear()
             await update.message.reply_text(
-                "Выберите тест:",
+                "Начните исследование.",
                 reply_markup=main_menu_markup,
             )
             return
@@ -214,7 +267,7 @@ async def handle_nav_text(update, context, main_menu_markup, tests):
     if text == TO_TESTS_BUTTON:
         context.user_data.clear()
         await update.message.reply_text(
-            "Выберите тест:",
+            "Начните исследование.",
             reply_markup=main_menu_markup,
         )
         return
@@ -223,6 +276,56 @@ async def handle_nav_text(update, context, main_menu_markup, tests):
         "Для ответа используйте кнопки под вопросом.",
         reply_markup=get_nav_menu() if stage == "questions" else main_menu_markup,
     )
+
+
+async def send_result_and_continue(update, context, main_menu_markup, test_def, result_text, share_text):
+    user = update.effective_user
+    user_id = user.id if user else "unknown"
+
+    result_keyboard = get_share_keyboard(share_text) if share_text else None
+    test_message_id = context.user_data.get("test_message_id")
+
+    context.user_data.clear()
+
+    if test_message_id:
+        try:
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=test_message_id,
+                text=result_text,
+                parse_mode="Markdown",
+                reply_markup=result_keyboard,
+            )
+        except Exception:
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=result_text,
+                parse_mode="Markdown",
+                reply_markup=result_keyboard,
+            )
+    else:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=result_text,
+            parse_mode="Markdown",
+            reply_markup=result_keyboard,
+        )
+
+    continue_keyboard = get_continue_keyboard(user_id, test_def["key"])
+    continue_text = build_continue_text(test_def["key"], user_id)
+
+    if continue_keyboard:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=continue_text,
+            reply_markup=continue_keyboard,
+        )
+    else:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Все тесты пройдены. Результаты сохранены в разделе «Мои результаты».",
+            reply_markup=main_menu_markup,
+        )
 
 
 async def handle_callback(update, context, main_menu_markup, tests):
@@ -241,7 +344,7 @@ async def handle_callback(update, context, main_menu_markup, tests):
 
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Выберите тест:",
+            text="Начните исследование.",
             reply_markup=main_menu_markup,
         )
         return
@@ -265,10 +368,29 @@ async def handle_callback(update, context, main_menu_markup, tests):
         await begin_test(update, context, test_key, tests[test_key])
         return
 
+    if data.startswith("next:"):
+        test_key = data.split(":", 1)[1]
+
+        if test_key not in tests:
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text="Этот тест сейчас недоступен.",
+                reply_markup=main_menu_markup,
+            )
+            return
+
+        try:
+            await query.edit_message_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+
+        await start_test(update, context, test_key, tests[test_key])
+        return
+
     if not current_test or current_test not in tests:
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Выберите тест:",
+            text="Начните исследование.",
             reply_markup=main_menu_markup,
         )
         return
@@ -313,38 +435,13 @@ async def handle_callback(update, context, main_menu_markup, tests):
                 result_text=result_text,
             )
 
-        result_keyboard = get_share_keyboard(share_text) if share_text else None
-        test_message_id = context.user_data.get("test_message_id")
-        context.user_data.clear()
-
-        if test_message_id:
-            try:
-                await context.bot.edit_message_text(
-                    chat_id=update.effective_chat.id,
-                    message_id=test_message_id,
-                    text=result_text,
-                    parse_mode="Markdown",
-                    reply_markup=result_keyboard,
-                )
-            except Exception:
-                await context.bot.send_message(
-                    chat_id=update.effective_chat.id,
-                    text=result_text,
-                    parse_mode="Markdown",
-                    reply_markup=result_keyboard,
-                )
-        else:
-            await context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text=result_text,
-                parse_mode="Markdown",
-                reply_markup=result_keyboard,
-            )
-
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="Выберите тест:",
-            reply_markup=main_menu_markup,
+        await send_result_and_continue(
+            update,
+            context,
+            main_menu_markup,
+            test_def,
+            result_text,
+            share_text,
         )
         return
 
