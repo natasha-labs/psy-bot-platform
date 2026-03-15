@@ -31,30 +31,24 @@ def get_intro_keyboard(test_key: str):
 
 def build_progress_bar(current, total):
     total_blocks = 10
-    filled = round((current / total) * total_blocks)
+    filled = max(1, round((current / total) * total_blocks))
+    filled = min(filled, total_blocks)
     empty = total_blocks - filled
-    return "🟩" * filled + "⬜" * empty
+    return "█" * filled + "░" * empty
 
 
-def build_question_text(title: str, questions, index: int, get_option_text, last_answer_text=None) -> str:
+def build_question_text(title: str, questions, index: int, get_option_text) -> str:
     question = questions[index]
     total = len(questions)
     current = index + 1
     progress = build_progress_bar(current, total)
 
-    parts = []
-
-    if last_answer_text:
-        parts.append(f"Ваш ответ: {last_answer_text}\n")
-
-    parts.append(
+    return (
         f"Тест: {title}\n\n"
         f"Вопрос {current} / {total}\n"
         f"{progress}\n\n"
         f"{question['text']}"
     )
-
-    return "\n".join(parts)
 
 
 def get_question_keyboard(question):
@@ -75,14 +69,13 @@ def get_question_keyboard(question):
     return InlineKeyboardMarkup(rows)
 
 
-async def send_or_edit_question(update, context, test_def, index: int, last_answer_text=None):
+async def send_or_edit_question(update, context, test_def, index: int):
     question = test_def["questions"][index]
     question_text = build_question_text(
         test_def["title"],
         test_def["questions"],
         index,
         test_def["get_option_text"],
-        last_answer_text=last_answer_text,
     )
     keyboard = get_question_keyboard(question)
 
@@ -114,7 +107,6 @@ async def start_test(update, context, test_key: str, test_def):
     context.user_data["stage"] = "intro"
     context.user_data["index"] = 0
     context.user_data["answers"] = []
-    context.user_data["last_answer_text"] = None
     context.user_data["test_message_id"] = None
 
     await update.message.reply_text(
@@ -129,7 +121,6 @@ async def begin_test(update, context, test_key: str, test_def):
     context.user_data["stage"] = "questions"
     context.user_data["index"] = 0
     context.user_data["answers"] = []
-    context.user_data["last_answer_text"] = None
     context.user_data["test_message_id"] = None
 
     await context.bot.send_message(
@@ -178,14 +169,11 @@ async def handle_nav_text(update, context, main_menu_markup, tests):
         if answers:
             answers.pop()
 
-        context.user_data["last_answer_text"] = None
-
         await send_or_edit_question(
             update,
             context,
             test_def,
             context.user_data["index"],
-            last_answer_text=None,
         )
         return
 
@@ -199,14 +187,12 @@ async def handle_nav_text(update, context, main_menu_markup, tests):
 
         context.user_data["index"] = 0
         context.user_data["answers"] = []
-        context.user_data["last_answer_text"] = None
 
         await send_or_edit_question(
             update,
             context,
             test_def,
             0,
-            last_answer_text=None,
         )
         return
 
@@ -287,11 +273,9 @@ async def handle_callback(update, context, main_menu_markup, tests):
 
     selected_option = current_question["options"][option_index]
     answer_value = test_def["get_option_value"](selected_option)
-    answer_text = test_def["get_option_text"](selected_option)
 
     context.user_data["answers"].append(answer_value)
     context.user_data["index"] = index + 1
-    context.user_data["last_answer_text"] = answer_text
 
     new_index = context.user_data["index"]
 
@@ -343,5 +327,4 @@ async def handle_callback(update, context, main_menu_markup, tests):
         context,
         test_def,
         new_index,
-        last_answer_text=answer_text,
     )
