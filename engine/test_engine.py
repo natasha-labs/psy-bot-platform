@@ -29,38 +29,25 @@ def get_intro_keyboard(test_key: str):
     )
 
 
-def get_choice_emoji(index: int) -> str:
-    emojis = ["①", "②", "③", "④", "⑤", "⑥"]
-    return emojis[index] if index < len(emojis) else f"{index + 1}."
+def build_progress_bar(current, total):
+    total_blocks = 10
+    filled = round((current / total) * total_blocks)
+    empty = total_blocks - filled
+    return "🟩" * filled + "⬜" * empty
 
 
-def build_option_cards(question, get_option_text):
-    lines = []
-    for option_index, option in enumerate(question["options"]):
-        emoji = get_choice_emoji(option_index)
-        text = get_option_text(option)
-        lines.append(f"{emoji} {text}")
-    return "\n\n".join(lines)
+def build_question_text(title: str, questions, index: int, get_option_text) -> str:
+    question = questions[index]
+    total = len(questions)
+    current = index + 1
+    progress = build_progress_bar(current, total)
 
-
-def wrap_button_text(text, max_len=24):
-    words = text.split()
-    lines = []
-    current = ""
-
-    for word in words:
-        test = f"{current} {word}".strip()
-        if len(test) <= max_len:
-            current = test
-        else:
-            if current:
-                lines.append(current)
-            current = word
-
-    if current:
-        lines.append(current)
-
-    return "\n".join(lines[:2])
+    return (
+        f"Тест: {title}\n\n"
+        f"Вопрос {current} из {total}\n"
+        f"{progress}\n\n"
+        f"{question['text']}"
+    )
 
 
 def get_question_keyboard(question):
@@ -68,7 +55,6 @@ def get_question_keyboard(question):
 
     for option_index, option in enumerate(question["options"]):
         text = option["text"] if isinstance(option, dict) else option
-        text = wrap_button_text(text)
 
         rows.append(
             [
@@ -80,16 +66,6 @@ def get_question_keyboard(question):
         )
 
     return InlineKeyboardMarkup(rows)
-
-
-def build_question_text(title: str, questions, index: int, get_option_text) -> str:
-    question = questions[index]
-
-    return (
-        f"Тест: {title}\n\n"
-        f"Вопрос {index + 1} из {len(questions)}:\n"
-        f"{question['text']}"
-    )
 
 
 async def send_question(update, context, test_def, index: int):
@@ -219,6 +195,11 @@ async def handle_callback(update, context, main_menu_markup, tests):
 
     if data == "main_menu":
         context.user_data.clear()
+        try:
+            await query.edit_message_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text="Выберите тест:",
@@ -228,6 +209,7 @@ async def handle_callback(update, context, main_menu_markup, tests):
 
     if data.startswith("start:"):
         test_key = data.split(":", 1)[1]
+
         if test_key not in tests:
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
@@ -235,6 +217,11 @@ async def handle_callback(update, context, main_menu_markup, tests):
                 reply_markup=main_menu_markup,
             )
             return
+
+        try:
+            await query.edit_message_reply_markup(reply_markup=None)
+        except Exception:
+            pass
 
         await begin_test(update, context, test_key, tests[test_key])
         return
@@ -259,6 +246,11 @@ async def handle_callback(update, context, main_menu_markup, tests):
     if option_index < 0 or option_index >= len(current_question["options"]):
         await query.answer("Такого варианта нет", show_alert=False)
         return
+
+    try:
+        await query.edit_message_reply_markup(reply_markup=None)
+    except Exception:
+        pass
 
     selected_option = current_question["options"][option_index]
     answer_value = test_def["get_option_value"](selected_option)
