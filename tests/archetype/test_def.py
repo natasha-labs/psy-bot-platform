@@ -191,8 +191,9 @@ def build_result(answer_values):
     )
 
     return (
-        f"✨ **ТВОЙ ТИП АРХЕТИПА**\n"
-        f"{type_name}\n\n"
+        f"🧠 *РЕЗУЛЬТАТ ТЕСТА*\n\n"
+        f"🧭 *ВЕДУЩИЙ АРХЕТИП*\n"
+        f"*{type_name.upper()}*\n\n"
         f"{type_description}\n\n"
         f"━━━━━━━━━━━━━━\n\n"
         f"{main_text}\n\n"
