@@ -26,7 +26,7 @@ questions = [
             {"text": "берёшь руководство", "value": "leader"},
             {"text": "оцениваешь со стороны", "value": "observer"},
             {"text": "пытаешься примирить", "value": "support"},
-            {"text": "отстраняешься", "value": "freedom"},
+            {"text": "берёшь дистанцию и паузу", "value": "freedom"},
         ],
     },
     {
@@ -46,7 +46,7 @@ questions = [
             {"text": "предлагаешь план", "value": "leader"},
             {"text": "вникаешь в суть", "value": "observer"},
             {"text": "даёшь поддержку", "value": "support"},
-            {"text": "помогаешь без привязки", "value": "freedom"},
+            {"text": "помогаешь, но сохраняешь дистанцию", "value": "freedom"},
         ],
     },
     {
@@ -106,7 +106,7 @@ questions = [
             {"text": "осваиваешь пространство", "value": "leader"},
             {"text": "присматриваешься", "value": "observer"},
             {"text": "ищешь контакт", "value": "support"},
-            {"text": "держишь свою свободу", "value": "freedom"},
+            {"text": "сохраняешь внутреннюю свободу", "value": "freedom"},
         ],
     },
     {
@@ -146,7 +146,7 @@ questions = [
             {"text": "используешь её", "value": "leader"},
             {"text": "наблюдаешь осторожно", "value": "observer"},
             {"text": "думаешь о людях", "value": "support"},
-            {"text": "не любишь рамки", "value": "freedom"},
+            {"text": "сохраняешь самостоятельность", "value": "freedom"},
         ],
     },
     {
@@ -185,7 +185,7 @@ questions = [
         "options": [
             {"text": "становишься жёстче", "value": "leader"},
             {"text": "уходишь в себя", "value": "observer"},
-            {"text": "ищешь поддержку", "value": "support"},
+            {"text": "тянешься к близкому контакту", "value": "support"},
             {"text": "хочешь исчезнуть из рамок", "value": "freedom"},
         ],
     },
