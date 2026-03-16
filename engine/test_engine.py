@@ -4,27 +4,27 @@ from telegram import (
     ReplyKeyboardMarkup,
 )
 
-from storage.results_store import save_user_result, get_user_results
-from personality_code.aggregator import enough_for_basic_personality_code, build_basic_personality_code
-from personality_code.renderer import render_basic_personality_code
-from personality_code.completion_screen import completion_text, completion_keyboard
-from personality_code.upsell_screen import upsell_text, upsell_keyboard
+from storage.results_store import (
+    save_user_result,
+    get_user_results,
+    save_personality_code_payload,
+)
+from personality_code.aggregator import (
+    enough_for_basic_personality_code,
+    build_basic_personality_code,
+)
+from personality_code.renderer import (
+    render_basic_personality_code,
+    render_upsell_text,
+    render_upsell_keyboard,
+    render_full_profile_stub_text,
+)
 
 BACK_BUTTON = "⬅️ Назад"
 RESTART_BUTTON = "🔄 Пройти тест заново"
 TO_TESTS_BUTTON = "◀️ К выбору тестов"
 
-TEST_SEQUENCE = [
-    "archetype",
-    "shadow",
-    "anxiety",
-]
-
-TEST_BUTTON_LABELS = {
-    "archetype": "Архетип личности",
-    "shadow": "Код Тени",
-    "anxiety": "Уровень внутреннего напряжения",
-}
+TEST_SEQUENCE = ["archetype", "shadow", "anxiety"]
 
 
 def get_nav_menu():
@@ -124,34 +124,70 @@ def get_share_keyboard(share_text):
     )
 
 
-def get_next_test_key(user_id, current_test_key):
+def get_next_test_key(user_id, current_test_key=None):
     results = get_user_results(user_id)
     completed = set(results.keys())
 
-    if current_test_key not in TEST_SEQUENCE:
-        return None
+    if current_test_key in TEST_SEQUENCE:
+        current_index = TEST_SEQUENCE.index(current_test_key)
+    else:
+        current_index = -1
 
-    current_index = TEST_SEQUENCE.index(current_test_key)
-
-    for next_index in range(current_index + 1, len(TEST_SEQUENCE)):
-        candidate = TEST_SEQUENCE[next_index]
-        if candidate not in completed:
-            return candidate
+    for index in range(current_index + 1, len(TEST_SEQUENCE)):
+        test_key = TEST_SEQUENCE[index]
+        if test_key not in completed:
+            return test_key
 
     return None
 
 
+def get_test_label_by_key(test_key):
+    labels = {
+        "archetype": "Архетип личности",
+        "shadow": "Код Тени",
+        "anxiety": "Внутреннее напряжение",
+    }
+    return labels.get(test_key, test_key)
+
+
 def get_continue_keyboard(user_id, current_test_key):
-    next_test_key = get_next_test_key(user_id, current_test_key)
+    next_key = get_next_test_key(user_id, current_test_key)
 
-    if not next_test_key:
+    if not next_key:
         return None
-
-    button_text = TEST_BUTTON_LABELS[next_test_key]
 
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton(button_text, callback_data=f"next:{next_test_key}")]
+            [InlineKeyboardButton("➡️ Продолжить", callback_data=f"next:{next_key}")]
+        ]
+    )
+
+
+def build_continue_text(user_id, current_test_key):
+    next_key = get_next_test_key(user_id, current_test_key)
+
+    if not next_key:
+        return "Все тесты пройдены."
+
+    return f"➡️ *Продолжить исследование*\n\nСледующий тест: *{get_test_label_by_key(next_key)}*"
+
+
+def build_tests_completed_text():
+    return (
+        "✨ *Ваш базовый код личности готов*\n\n"
+        "На основе трёх тестов мы собрали\n"
+        "ваш начальный психологический профиль.\n\n"
+        "Он показывает:\n\n"
+        "• как вы проявляетесь в мире\n"
+        "• какие реакции скрыты\n"
+        "• что влияет на ваши решения"
+    )
+
+
+def build_tests_completed_keyboard():
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("Получить код личности", callback_data="show_personality_code")]
         ]
     )
 
@@ -224,7 +260,7 @@ async def begin_test(update, context, test_key: str, test_def):
 
     await context.bot.send_message(
         chat_id=chat_id,
-        text=f"*ТЕСТ НАЧАТ*\n\n*{test_def['title'].upper()}*",
+        text=f"*ТЕСТ: {test_def['title'].upper()}*",
         reply_markup=get_nav_menu(),
         parse_mode="Markdown",
     )
@@ -310,8 +346,23 @@ async def handle_nav_text(update, context, main_menu_markup, tests):
     )
 
 
-async def send_result_block(chat_id, context, result_text, share_text):
+async def send_result_and_continue(
+    update,
+    context,
+    main_menu_markup,
+    test_def,
+    result_text,
+    share_text,
+    tests_completed=False,
+):
+    user = update.effective_user
+    user_id = user.id if user else "unknown"
+    chat_id = update.effective_chat.id
+
     result_keyboard = get_share_keyboard(share_text) if share_text else None
+
+    context.user_data.clear()
+
     await context.bot.send_message(
         chat_id=chat_id,
         text=result_text,
@@ -319,23 +370,15 @@ async def send_result_block(chat_id, context, result_text, share_text):
         reply_markup=result_keyboard,
     )
 
-
-async def handle_after_test(update, context, main_menu_markup, test_def):
-    user = update.effective_user
-    user_id = user.id if user else "unknown"
-    chat_id = update.effective_chat.id
-
-    user_results = get_user_results(user_id)
     fresh_main_menu = get_dynamic_main_menu(user_id)
 
-    if enough_for_basic_personality_code(user_results):
+    if tests_completed:
         await context.bot.send_message(
             chat_id=chat_id,
-            text=completion_text(),
+            text=build_tests_completed_text(),
             parse_mode="Markdown",
-            reply_markup=completion_keyboard(),
+            reply_markup=build_tests_completed_keyboard(),
         )
-
         await context.bot.send_message(
             chat_id=chat_id,
             text="Все тесты пройдены. Теперь в меню доступны все тесты, раздел «Мои результаты» и «Получить Код личности».",
@@ -344,11 +387,12 @@ async def handle_after_test(update, context, main_menu_markup, test_def):
         return
 
     continue_keyboard = get_continue_keyboard(user_id, test_def["key"])
+    continue_text = build_continue_text(user_id, test_def["key"])
 
     if continue_keyboard:
         await context.bot.send_message(
             chat_id=chat_id,
-            text="➡️ *Продолжить исследование*",
+            text=continue_text,
             parse_mode="Markdown",
             reply_markup=continue_keyboard,
         )
@@ -391,6 +435,15 @@ async def handle_callback(update, context, main_menu_markup, tests):
         await send_intro_screen(update, context, "archetype", tests["archetype"])
         return
 
+    if data == "premium_stub":
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=render_full_profile_stub_text(),
+            parse_mode="Markdown",
+            reply_markup=render_upsell_keyboard(),
+        )
+        return
+
     if data == "show_personality_code":
         user = update.effective_user
         user_id = user.id if user else "unknown"
@@ -405,6 +458,7 @@ async def handle_callback(update, context, main_menu_markup, tests):
             return
 
         personality_payload = build_basic_personality_code(user_results)
+        save_personality_code_payload(user.id, personality_payload, version="basic_v1")
 
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -414,17 +468,9 @@ async def handle_callback(update, context, main_menu_markup, tests):
 
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text=upsell_text(),
+            text=render_upsell_text(),
             parse_mode="Markdown",
-            reply_markup=upsell_keyboard(),
-        )
-        return
-
-    if data == "premium_stub":
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="Полный код личности будет подключён следующим этапом.",
-            reply_markup=main_menu_markup,
+            reply_markup=render_upsell_keyboard(),
         )
         return
 
@@ -507,6 +553,8 @@ async def handle_callback(update, context, main_menu_markup, tests):
             share_text = None
 
         user = update.effective_user
+        tests_completed = False
+
         if user:
             save_user_result(
                 user_id=user.id,
@@ -516,16 +564,21 @@ async def handle_callback(update, context, main_menu_markup, tests):
                 profile_payload=profile_payload,
             )
 
-        context.user_data.clear()
+            user_results = get_user_results(user.id)
+            if enough_for_basic_personality_code(user_results):
+                personality_payload = build_basic_personality_code(user_results)
+                save_personality_code_payload(user.id, personality_payload, version="basic_v1")
+                tests_completed = True
 
-        await send_result_block(
-            chat_id=update.effective_chat.id,
-            context=context,
-            result_text=result_text,
-            share_text=share_text,
+        await send_result_and_continue(
+            update,
+            context,
+            main_menu_markup,
+            test_def,
+            result_text,
+            share_text,
+            tests_completed=tests_completed,
         )
-
-        await handle_after_test(update, context, main_menu_markup, test_def)
         return
 
     await send_or_edit_question(
