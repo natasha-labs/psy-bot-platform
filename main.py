@@ -11,7 +11,12 @@ from telegram.ext import (
 
 from engine.test_engine import start_test, handle_nav_text, handle_callback
 from tests.registry import TESTS
-from storage.results_store import get_user_results, delete_user_results
+from storage.results_store import (
+    get_user_results,
+    delete_user_results,
+    get_personality_code_payload,
+)
+from personality_code.renderer import render_basic_personality_code
 
 TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = 5750354905
@@ -31,6 +36,7 @@ FULL_MENU = [
     ["Архетип личности"],
     ["Уровень тревоги"],
     ["Мои результаты"],
+    ["Получить Код личности"],
     ["О тесте"],
 ]
 
@@ -104,7 +110,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     results = get_user_results(user_id)
     main_menu_markup = get_main_menu_by_results(results, user_id)
 
-    # Главное меню должно работать всегда
     if text == "Сбросить мои тесты":
         if not is_admin(user_id):
             await update.message.reply_text(
@@ -129,6 +134,24 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.clear()
         await update.message.reply_text(
             build_results_text(results),
+            reply_markup=main_menu_markup,
+            parse_mode="Markdown",
+        )
+        return
+
+    if text == "Получить Код личности":
+        context.user_data.clear()
+
+        payload = get_personality_code_payload(user_id)
+        if not payload:
+            await update.message.reply_text(
+                "Сначала пройдите три базовых теста, чтобы получить ваш Код личности.",
+                reply_markup=main_menu_markup,
+            )
+            return
+
+        await update.message.reply_text(
+            render_basic_personality_code(payload),
             reply_markup=main_menu_markup,
             parse_mode="Markdown",
         )
