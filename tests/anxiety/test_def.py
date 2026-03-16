@@ -147,7 +147,7 @@ def build_result(answer_values):
 
     return (
         f"🧠 *РЕЗУЛЬТАТ ТЕСТА*\n\n"
-        f"🧠 *УРОВЕНЬ ТРЕВОГИ*\n"
+        f"🧠 *⚡ УРОВЕНЬ ВНУТРЕННЕГО НАПРЯЖЕНИЯ*\n"
         f"*{ANXIETY_LABELS[main_level].upper()}*\n\n"
         f"{build_main_text(main_level)}\n\n"
         f"━━━━━━━━━━━━━━\n\n"
@@ -175,7 +175,7 @@ def build_profile_payload(answer_values):
 
     return {
         "test_key": "anxiety",
-        "title": "Уровень тревоги",
+        "title": "⚡ УРОВЕНЬ ВНУТРЕННЕГО НАПРЯЖЕНИЯ",
         "main_type": main_level,
         "main_label": ANXIETY_LABELS[main_level],
         "second_type": second_layer_key,
