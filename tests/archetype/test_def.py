@@ -10,6 +10,14 @@ ARCHETYPE_LABELS = {
 }
 
 
+def get_option_text(option):
+    return option["text"]
+
+
+def get_option_value(option):
+    return option["value"]
+
+
 def calculate_profile(answer_values):
     counts = Counter(answer_values)
 
@@ -117,21 +125,42 @@ def build_main_interpretation(main_type):
 def build_second_interpretation(second_type):
     if second_type == "leader":
         return (
-            "Второй слой архетипа связан с лидерством: внутри есть стремление влиять, вести и принимать решения."
+            "Во втором слое у вас есть лидерская часть: она включается там, где нужно брать ответственность, влиять и собирать ситуацию вокруг себя."
         )
 
     if second_type == "observer":
         return (
-            "Второй слой архетипа связан с наблюдением: внутри есть сильная аналитическая и чувствующая часть."
+            "Во втором слое у вас есть наблюдающая часть: она помогает видеть глубже, замечать скрытые мотивы и не действовать поверхностно."
         )
 
     if second_type == "support":
         return (
-            "Второй слой архетипа связан с поддержкой: внутри есть тепло, эмпатия и готовность быть опорой."
+            "Во втором слое у вас есть поддерживающая часть: она связана с теплом, эмпатией и способностью быть для других точкой опоры."
         )
 
     return (
-        "Второй слой архетипа связан со свободой: внутри есть сильная потребность в независимости и собственном пространстве."
+        "Во втором слое у вас есть свободная часть: она помогает сохранять независимость, не растворяться в ожиданиях и держать связь с собой."
+    )
+
+
+def build_shadow_side(main_type):
+    if main_type == "leader":
+        return (
+            "В перекосе этот архетип может уходить в чрезмерный контроль, жёсткость и невозможность расслабиться."
+        )
+
+    if main_type == "observer":
+        return (
+            "В перекосе этот архетип может застревать в анализе, отдаляться от живого контакта и слишком долго не переходить к действию."
+        )
+
+    if main_type == "support":
+        return (
+            "В перекосе этот архетип может слишком сильно подстраиваться под других и терять контакт со своими собственными потребностями."
+        )
+
+    return (
+        "В перекосе этот архетип может уходить в дистанцию, избегать привязанности и защищать свободу даже там, где нужна близость."
     )
 
 
@@ -142,6 +171,7 @@ def build_result(answer_values):
     type_description = build_type_description(main_type)
     main_text = build_main_interpretation(main_type)
     second_text = build_second_interpretation(second_type)
+    shadow_text = build_shadow_side(main_type)
 
     profile_block = (
         f"Лидер — {percentages['leader']}%\n"
@@ -162,7 +192,10 @@ def build_result(answer_values):
         f"━━━━━━━━━━━━━━\n\n"
         f"🌗 **ВТОРОЙ СЛОЙ АРХЕТИПА**\n"
         f"{ARCHETYPE_LABELS[second_type]}\n"
-        f"{second_text}"
+        f"{second_text}\n\n"
+        f"━━━━━━━━━━━━━━\n\n"
+        f"⚠️ **РИСК ПЕРЕКОСА**\n"
+        f"{shadow_text}"
     )
 
 
@@ -177,7 +210,7 @@ TEST_DEF = {
         "Читайте вопрос и выбирайте тот вариант, который ближе всего вам."
     ),
     "questions": questions,
-    "get_option_text": lambda option: option["text"],
-    "get_option_value": lambda option: option["value"],
+    "get_option_text": get_option_text,
+    "get_option_value": get_option_value,
     "build_result": build_result,
 }
