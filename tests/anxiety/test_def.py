@@ -109,20 +109,16 @@ def build_second_layer_text(level_key):
 def build_growth_text(level_key):
     texts = {
         "low": (
-            "Ваша точка роста — не игнорировать тревогу полностью, "
-            "а замечать её как ранний сигнал в действительно важных ситуациях."
+            "Не игнорировать тревогу полностью, а замечать её как ранний сигнал в действительно важных ситуациях."
         ),
         "medium": (
-            "Ваша точка роста — раньше замечать момент, когда обычное волнение начинает превращаться "
-            "в внутренний перегруз, и возвращать себе опору до усиления тревоги."
+            "Раньше замечать момент, когда обычное волнение начинает превращаться в внутренний перегруз, и возвращать себе опору до усиления тревоги."
         ),
         "high": (
-            "Ваша точка роста — учиться отделять реальные риски от тревожных сценариев "
-            "и раньше снижать внутреннее напряжение, пока оно не стало постоянным фоном."
+            "Учиться отделять реальные риски от тревожных сценариев и раньше снижать внутреннее напряжение, пока оно не стало постоянным фоном."
         ),
         "very_high": (
-            "Ваша точка роста — не пытаться всё выдерживать только усилием воли, "
-            "а выстраивать систему восстановления, снижения перегрузки и возвращения чувства безопасности."
+            "Не пытаться всё выдерживать только усилием воли, а выстраивать систему восстановления, снижения перегрузки и возвращения чувства безопасности."
         ),
     }
     return texts[level_key]
@@ -162,6 +158,33 @@ def build_result(answer_values):
     )
 
 
+def build_profile_payload(answer_values):
+    total_score = calculate_total_score(answer_values)
+    main_level = get_main_level_by_score(total_score)
+    percentages, sorted_profile = calculate_profile(answer_values)
+
+    second_layer_candidates = [
+        item for item in sorted_profile if item[0] != main_level
+    ]
+    second_layer_key = second_layer_candidates[0][0] if second_layer_candidates else main_level
+
+    return {
+        "test_key": "anxiety",
+        "title": "Уровень тревоги",
+        "main_type": main_level,
+        "main_label": ANXIETY_LABELS[main_level],
+        "second_type": second_layer_key,
+        "second_label": ANXIETY_LABELS[second_layer_key],
+        "percentages": percentages,
+        "summary": build_main_text(main_level),
+        "growth_point": build_growth_text(main_level),
+        "risk_zone": build_second_layer_text(second_layer_key),
+        "raw_text": build_result(answer_values),
+        "score": total_score,
+        "level": main_level,
+    }
+
+
 TEST_DEF = {
     "key": "anxiety",
     "title": "Уровень тревоги",
@@ -175,4 +198,5 @@ TEST_DEF = {
     "get_option_text": get_option_text,
     "get_option_value": get_option_value,
     "build_result": build_result,
+    "build_profile_payload": build_profile_payload,
 }
