@@ -130,24 +130,21 @@ def build_shadow_side(main_type):
 def build_growth_text(main_type):
     if main_type == "control":
         return (
-            "Точка роста — не только удерживать себя и ситуацию, но и замечать живые чувства под этим контролем."
+            "Не только удерживать себя и ситуацию, но и замечать живые чувства под этим контролем."
         )
 
     if main_type == "weakness":
         return (
-            "Точка роста — учиться видеть в уязвимости не слабость, а живую часть себя, "
-            "которая тоже заслуживает места."
+            "Учиться видеть в уязвимости не слабость, а живую часть себя, которая тоже заслуживает места."
         )
 
     if main_type == "anger":
         return (
-            "Точка роста — признавать злость как энергию границ и силы, "
-            "а не только как угрозу отношениям."
+            "Признавать злость как энергию границ и силы, а не только как угрозу отношениям."
         )
 
     return (
-        "Точка роста — не бороться со страхом, а распознавать его как внутренний сигнал, "
-        "которому тоже нужна опора."
+        "Не бороться со страхом, а распознавать его как внутренний сигнал, которому тоже нужна опора."
     )
 
 
@@ -169,6 +166,27 @@ def build_share_text(main_type):
         f"Интересно узнать, что скрывается в тебе.\n\n"
         f"Пройти тест:\n{BOT_LINK}"
     )
+
+
+def build_profile_payload(answer_values):
+    percentages, main_type, second_type, _sorted_profiles = calculate_profile(answer_values)
+
+    raw_result = build_result(answer_values)
+
+    return {
+        "test_key": "shadow",
+        "title": "Код Тени",
+        "main_type": main_type,
+        "main_label": SHADOW_DISPLAY_TYPES[main_type],
+        "second_type": second_type,
+        "second_label": SHADOW_DISPLAY_TYPES[second_type],
+        "percentages": percentages,
+        "summary": build_type_description(main_type),
+        "growth_point": build_growth_text(main_type),
+        "risk_zone": build_shadow_side(main_type),
+        "raw_text": raw_result["text"],
+        "share_text": raw_result["share_text"],
+    }
 
 
 def build_result(answer_values):
@@ -220,4 +238,5 @@ TEST_DEF = {
     "get_option_text": get_option_text,
     "get_option_value": get_option_value,
     "build_result": build_result,
+    "build_profile_payload": build_profile_payload,
 }
