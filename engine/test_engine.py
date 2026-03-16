@@ -20,6 +20,32 @@ def get_nav_menu():
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 
+def has_full_access(results: dict) -> bool:
+    required = {"shadow", "archetype", "anxiety"}
+    return required.issubset(set(results.keys()))
+
+
+def get_dynamic_main_menu(user_id):
+    results = get_user_results(user_id)
+
+    if has_full_access(results):
+        keyboard = [
+            ["Код Тени"],
+            ["Архетип личности"],
+            ["Уровень тревоги"],
+            ["Мои результаты"],
+            ["О тесте"],
+        ]
+    else:
+        keyboard = [
+            ["Начать исследование"],
+            ["Мои результаты"],
+            ["О тесте"],
+        ]
+
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+
 def get_intro_keyboard(test_key: str, button_text: str = "Поехали"):
     return InlineKeyboardMarkup(
         [
@@ -315,12 +341,13 @@ async def send_result_and_continue(update, context, main_menu_markup, test_def, 
         )
 
     results_after_save = get_user_results(user_id)
+    fresh_main_menu = get_dynamic_main_menu(user_id)
 
     if has_full_access(results_after_save):
         await context.bot.send_message(
             chat_id=chat_id,
             text="Все тесты пройдены. Теперь в меню доступны все тесты и раздел «Мои результаты».",
-            reply_markup=main_menu_markup,
+            reply_markup=fresh_main_menu,
         )
         return
 
@@ -338,7 +365,7 @@ async def send_result_and_continue(update, context, main_menu_markup, test_def, 
     await context.bot.send_message(
         chat_id=chat_id,
         text="Исследование завершено.",
-        reply_markup=main_menu_markup,
+        reply_markup=fresh_main_menu,
     )
 
 
