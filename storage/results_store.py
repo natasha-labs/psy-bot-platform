@@ -40,7 +40,6 @@ def ensure_user_record(user_id):
             "last_personality_code_payload": None,
         }
         save_results(data)
-
     else:
         changed = False
 
