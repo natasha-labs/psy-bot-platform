@@ -164,6 +164,16 @@ def build_shadow_side(main_type):
     )
 
 
+def build_growth_text(main_type):
+    if main_type == "leader":
+        return "Не только вести, но и иногда разрешать себе не знать ответ сразу."
+    if main_type == "observer":
+        return "Не застревать в наблюдении и иногда идти в действие чуть раньше."
+    if main_type == "support":
+        return "Не забывать о себе, пока поддерживаете других."
+    return "Не путать свободу с изоляцией и оставлять место для близости."
+
+
 def build_result(answer_values):
     percentages, main_type, second_type = calculate_profile(answer_values)
 
@@ -199,6 +209,26 @@ def build_result(answer_values):
     )
 
 
+def build_profile_payload(answer_values):
+    percentages, main_type, second_type = calculate_profile(answer_values)
+    raw_text = build_result(answer_values)
+
+    return {
+        "test_key": "archetype",
+        "title": "Архетип личности",
+        "main_type": main_type,
+        "main_label": ARCHETYPE_LABELS[main_type],
+        "second_type": second_type,
+        "second_label": ARCHETYPE_LABELS[second_type],
+        "percentages": percentages,
+        "summary": build_type_description(main_type),
+        "growth_point": build_growth_text(main_type),
+        "risk_zone": build_shadow_side(main_type),
+        "raw_text": raw_text,
+        "dominant_theme": main_type,
+    }
+
+
 TEST_DEF = {
     "key": "archetype",
     "title": "Архетип личности",
@@ -213,4 +243,5 @@ TEST_DEF = {
     "get_option_text": get_option_text,
     "get_option_value": get_option_value,
     "build_result": build_result,
+    "build_profile_payload": build_profile_payload,
 }
