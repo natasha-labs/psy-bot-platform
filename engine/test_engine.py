@@ -250,20 +250,11 @@ async def start_test(update, context, test_key: str, test_def):
 
 
 async def begin_test(update, context, test_key: str, test_def):
-    chat_id = update.effective_chat.id
-
     context.user_data["test"] = test_key
     context.user_data["stage"] = "questions"
     context.user_data["index"] = 0
     context.user_data["answers"] = []
     context.user_data["test_message_id"] = None
-
-    await context.bot.send_message(
-        chat_id=chat_id,
-        text=f"*ТЕСТ: {test_def['title'].upper()}*",
-        reply_markup=get_nav_menu(),
-        parse_mode="Markdown",
-    )
 
     await send_or_edit_question(update, context, test_def, 0)
 
