@@ -196,8 +196,9 @@ def build_result(answer_values):
     second_type_name = SHADOW_DISPLAY_TYPES[second_type]
 
     text = (
-        f"🌑 *ТВОЙ ТИП ТЕНИ*\n"
-        f"{main_type_name}\n\n"
+        f"🧠 *РЕЗУЛЬТАТ ТЕСТА*\n\n"
+        f"🌑 *ВАША ТЕНЬ*\n"
+        f"*{main_type_name.upper()}*\n\n"
         f"{build_type_description(main_type)}\n\n"
         f"━━━━━━━━━━━━━━\n\n"
         f"📊 *ПРОФИЛЬ ТЕНИ*\n"
