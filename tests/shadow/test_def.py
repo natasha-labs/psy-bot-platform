@@ -161,7 +161,7 @@ def build_profile_block(percentages):
 def build_share_text(main_type):
     shadow_type = SHADOW_DISPLAY_TYPES[main_type]
     return (
-        f"Я прошёл тест «Код Тени».\n\n"
+        f"Я прошёл тест «🌑 ВАША ТЕНЕВАЯ СТОРОНА».\n\n"
         f"Мой тип Тени — {shadow_type}\n\n"
         f"Интересно узнать, что скрывается в тебе.\n\n"
         f"Пройти тест:\n{BOT_LINK}"
@@ -175,7 +175,7 @@ def build_profile_payload(answer_values):
 
     return {
         "test_key": "shadow",
-        "title": "Код Тени",
+        "title": "🌑 ВАША ТЕНЕВАЯ СТОРОНА",
         "main_type": main_type,
         "main_label": SHADOW_DISPLAY_TYPES[main_type],
         "second_type": second_type,
@@ -197,7 +197,7 @@ def build_result(answer_values):
 
     text = (
         f"🧠 *РЕЗУЛЬТАТ ТЕСТА*\n\n"
-        f"🌑 *ВАША ТЕНЬ*\n"
+        f"🌑 *🌑 ВАША ТЕНЕВАЯ СТОРОНА*\n"
         f"*{main_type_name.upper()}*\n\n"
         f"{build_type_description(main_type)}\n\n"
         f"━━━━━━━━━━━━━━\n\n"
@@ -224,7 +224,7 @@ def build_result(answer_values):
 
 TEST_DEF = {
     "key": "shadow",
-    "title": "Код Тени",
+    "title": "🌑 ВАША ТЕНЕВАЯ СТОРОНА",
     "intro_text": (
         "*Код Тени*\n\n"
         "У каждого человека есть сторона личности,\n"
