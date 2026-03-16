@@ -1,5 +1,5 @@
 import os
-from telegram import Update, ReplyKeyboardMarkup
+from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -12,7 +12,6 @@ from telegram.ext import (
 from engine.test_engine import start_test, handle_nav_text, handle_callback
 from tests.registry import TESTS
 from storage.results_store import get_user_results, delete_user_results
-from intro.research_intro import research_intro_text, research_intro_keyboard
 
 TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = 5750354905
@@ -85,6 +84,34 @@ def build_results_text(results: dict) -> str:
     return "\n".join(lines).strip()
 
 
+def build_research_intro_text():
+    return (
+        "✨ *Как работает исследование*\n\n"
+        "Вы пройдёте три коротких теста.\n"
+        "Каждый из них раскрывает отдельный слой вашей личности.\n\n"
+        "🧭 *Архетип личности*\n"
+        "покажет ваш основной способ взаимодействия с людьми и миром.\n\n"
+        "🌑 *Теневая сторона*\n"
+        "поможет увидеть часть личности, которую обычно трудно заметить.\n\n"
+        "⚡ *Уровень внутреннего напряжения*\n"
+        "покажет, как стресс и внутренние реакции влияют на ваши решения.\n\n"
+        "После каждого теста вы получите короткий результат.\n\n"
+        "Когда все три теста будут завершены, система соберёт их в:\n\n"
+        "🧬 *КОД ЛИЧНОСТИ*\n\n"
+        "Это ваш психологический профиль, который показывает,\n"
+        "как соединяются разные части вашей личности.\n\n"
+        "*3 теста • примерно 5 минут*"
+    )
+
+
+def build_research_intro_keyboard():
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("Начать исследование", callback_data="start_research")]
+        ]
+    )
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
 
@@ -99,9 +126,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not has_full_access(results):
         await update.message.reply_text(
-            research_intro_text(),
+            build_research_intro_text(),
             parse_mode="Markdown",
-            reply_markup=research_intro_keyboard(),
+            reply_markup=build_research_intro_keyboard(),
         )
 
 
@@ -143,8 +170,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if text == "Получить Код личности":
+        context.user_data.clear()
         await update.message.reply_text(
-            "Код личности открывается после завершения трёх тестов.",
+            "Сначала завершите три базовых теста или нажмите кнопку «Получить код личности» на экране завершения.",
             reply_markup=main_menu_markup,
         )
         return
@@ -158,7 +186,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "Внутри доступны:\n"
                 "• Архетип личности\n"
                 "• Код Тени\n"
-                "• Уровень внутреннего напряжения\n\n"
+                "• Внутреннее напряжение\n\n"
                 "После прохождения трёх тестов вы можете получить «Код личности».\n\n"
                 "Все результаты сохраняются в разделе «Мои результаты»."
             )
@@ -168,7 +196,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "Вы проходите три теста по цепочке:\n"
                 "• Архетип личности\n"
                 "• Код Тени\n"
-                "• Уровень внутреннего напряжения\n\n"
+                "• Внутреннее напряжение\n\n"
                 "После этого бот собирает результаты в «Код личности».\n\n"
                 "Все результаты сохраняются в разделе «Мои результаты»."
             )
@@ -192,7 +220,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await start_test(update, context, test_key, TESTS[test_key])
         else:
             await update.message.reply_text(
-                "Сначала начните исследование. Порядок тестов: Архетип → Код Тени → Уровень внутреннего напряжения.",
+                "Сначала начните исследование. Порядок тестов: Архетип личности → Код Тени → Внутреннее напряжение.",
                 reply_markup=main_menu_markup,
             )
         return
