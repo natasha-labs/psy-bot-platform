@@ -71,55 +71,12 @@ def build_type_description(main_type):
 
 def build_main_interpretation(main_type):
     if main_type == "leader":
-        return (
-            "🔎 **🔎 ВАШ АРХЕТИП ЛИЧНОСТИ**\n"
-            "Лидерство и влияние\n\n"
-            "Похоже, вы естественно тянетесь к позиции, где можно влиять, вести и задавать направление.\n\n"
-            "Что это может значить:\n"
-            "• вам легче включаться, когда есть цель и движение\n"
-            "• внутри есть опора на решение и действие\n"
-            "• вам может быть трудно долго оставаться в пассивной роли\n\n"
-            "Точка роста:\n"
-            "не только вести, но и иногда разрешать себе не знать ответ сразу."
-        )
-
+        return "Лидерство и влияние"
     if main_type == "observer":
-        return (
-            "🔎 **🔎 ВАШ АРХЕТИП ЛИЧНОСТИ**\n"
-            "Наблюдение и глубина\n\n"
-            "Похоже, вы лучше всего раскрываетесь через наблюдение, понимание и внутренний анализ.\n\n"
-            "Что это может значить:\n"
-            "• вам важно сначала почувствовать контекст\n"
-            "• вы замечаете детали, которые другие могут пропустить\n"
-            "• перед действием вам нужно внутреннее понимание\n\n"
-            "Точка роста:\n"
-            "не застревать в наблюдении и иногда идти в действие чуть раньше."
-        )
-
+        return "Наблюдение и глубина"
     if main_type == "support":
-        return (
-            "🔎 **🔎 ВАШ АРХЕТИП ЛИЧНОСТИ**\n"
-            "Поддержка и контакт\n\n"
-            "Похоже, ваша сильная сторона — создавать тепло, удерживать связь и поддерживать людей рядом.\n\n"
-            "Что это может значить:\n"
-            "• вы тонко чувствуете эмоциональную атмосферу\n"
-            "• рядом с вами людям легче раскрываться\n"
-            "• вам естественно быть опорой и заботой\n\n"
-            "Точка роста:\n"
-            "не забывать о себе, пока поддерживаете других."
-        )
-
-    return (
-        "🔎 **🔎 ВАШ АРХЕТИП ЛИЧНОСТИ**\n"
-        "Свобода и дистанция\n\n"
-        "Похоже, для вас особенно важны внутреннее пространство, самостоятельность и право быть собой.\n\n"
-        "Что это может значить:\n"
-        "• вам трудно находиться в слишком тесных рамках\n"
-        "• важна независимость решений и ощущение свободы\n"
-        "• иногда дистанция становится способом сохранить себя\n\n"
-        "Точка роста:\n"
-        "не путать свободу с изоляцией и оставлять место для близости."
-    )
+        return "Поддержка и контакт"
+    return "Свобода и дистанция"
 
 
 def build_second_interpretation(second_type):
@@ -177,9 +134,8 @@ def build_growth_text(main_type):
 def build_result(answer_values):
     percentages, main_type, second_type = calculate_profile(answer_values)
 
-    type_name = ARCHETYPE_LABELS[main_type]
     type_description = build_type_description(main_type)
-    main_text = build_main_interpretation(main_type)
+    subtitle = build_main_interpretation(main_type)
     second_text = build_second_interpretation(second_type)
     shadow_text = build_shadow_side(main_type)
 
@@ -192,27 +148,24 @@ def build_result(answer_values):
 
     return (
         f"🧠 *РЕЗУЛЬТАТ ТЕСТА*\n\n"
-        f"🧭 *ВЕДУЩИЙ АРХЕТИП*\n"
-        f"*{type_name.upper()}*\n\n"
+        f"🔎 *ВАШ АРХЕТИП ЛИЧНОСТИ*\n"
+        f"*{subtitle.upper()}*\n\n"
         f"{type_description}\n\n"
         f"━━━━━━━━━━━━━━\n\n"
-        f"{main_text}\n\n"
-        f"━━━━━━━━━━━━━━\n\n"
-        f"📊 **ПРОФИЛЬ АРХЕТИПА**\n"
+        f"📊 *ПРОФИЛЬ АРХЕТИПА*\n"
         f"{profile_block}\n\n"
         f"━━━━━━━━━━━━━━\n\n"
-        f"🌗 **ВТОРОЙ СЛОЙ АРХЕТИПА**\n"
+        f"🌗 *ВТОРОЙ СЛОЙ АРХЕТИПА*\n"
         f"{ARCHETYPE_LABELS[second_type]}\n"
         f"{second_text}\n\n"
         f"━━━━━━━━━━━━━━\n\n"
-        f"⚠️ **РИСК ПЕРЕКОСА**\n"
+        f"⚠️ *РИСК ПЕРЕКОСА*\n"
         f"{shadow_text}"
     )
 
 
 def build_profile_payload(answer_values):
     percentages, main_type, second_type = calculate_profile(answer_values)
-    raw_text = build_result(answer_values)
 
     return {
         "test_key": "archetype",
@@ -225,8 +178,11 @@ def build_profile_payload(answer_values):
         "summary": build_type_description(main_type),
         "growth_point": build_growth_text(main_type),
         "risk_zone": build_shadow_side(main_type),
-        "raw_text": raw_text,
-        "dominant_theme": main_type,
+        "raw_text": build_result(answer_values),
+        "dominant_theme": build_main_interpretation(main_type),
+        "primary_result": main_type,
+        "secondary_result": second_type,
+        "profile_data": percentages,
     }
 
 
@@ -234,18 +190,15 @@ TEST_DEF = {
     "key": "archetype",
     "title": "Архетип личности",
     "intro_text": (
-    "*Архетип личности*\n\n"
-
-    "У каждого человека есть естественный стиль поведения —\n"
-    "то, как он взаимодействует с людьми, решениями и жизнью.\n\n"
-
-    "В психологии это называют архетипом личности.\n\n"
-
-    "Этот тест поможет увидеть,\n"
-    "какой архетип сейчас сильнее всего проявляется в вас.\n\n"
-
-    "Тест займёт около 1–2 минут."
-),
+        "*Архетип личности*\n\n"
+        "У каждого человека есть естественный стиль поведения —\n"
+        "то, как он взаимодействует с людьми, решениями и жизнью.\n\n"
+        "В психологии это называют архетипом личности.\n\n"
+        "Этот тест поможет увидеть,\n"
+        "какой архетип сейчас сильнее всего проявляется в вас.\n\n"
+        "Тест займёт около 1–2 минут."
+    ),
+    "intro_button_text": "Начать тест",
     "questions": questions,
     "get_option_text": get_option_text,
     "get_option_value": get_option_value,
