@@ -13,16 +13,3 @@ async def handle_anxiety_answer(update, context, main_menu_markup):
         main_menu_markup,
         {"anxiety": TEST_DEF},
     )
-
-
-async def handle_anxiety_nav(action, update, context, main_menu_markup):
-    if action == "main_menu" or action == "to_tests":
-        context.user_data.clear()
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="Выберите тест:",
-            reply_markup=main_menu_markup,
-        )
-        return
-
-    await handle_anxiety_answer(update, context, main_menu_markup)
