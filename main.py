@@ -11,12 +11,8 @@ from telegram.ext import (
 
 from engine.test_engine import start_test, handle_nav_text, handle_callback
 from tests.registry import TESTS
-from storage.results_store import (
-    get_user_results,
-    delete_user_results,
-    get_personality_code_payload,
-)
-from personality_code.renderer import render_basic_personality_code
+from storage.results_store import get_user_results, delete_user_results
+from intro.research_intro import research_intro_text, research_intro_keyboard
 
 TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = 5750354905
@@ -32,18 +28,18 @@ ONBOARDING_MENU = [
 ]
 
 FULL_MENU = [
-    ["Код Тени"],
     ["Архетип личности"],
-    ["Уровень тревоги"],
+    ["Код Тени"],
+    ["Уровень внутреннего напряжения"],
     ["Мои результаты"],
     ["Получить Код личности"],
     ["О тесте"],
 ]
 
 BUTTON_TO_TEST_KEY = {
-    "Код Тени": "shadow",
     "Архетип личности": "archetype",
-    "Уровень тревоги": "anxiety",
+    "Код Тени": "shadow",
+    "Уровень внутреннего напряжения": "anxiety",
 }
 
 
@@ -74,7 +70,7 @@ def build_results_text(results: dict) -> str:
         )
 
     lines = ["*Мои результаты*\n"]
-    ordered_keys = ["shadow", "archetype", "anxiety"]
+    ordered_keys = ["archetype", "shadow", "anxiety"]
 
     for key in ordered_keys:
         if key not in results:
@@ -100,6 +96,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Добро пожаловать в систему «Код личности».",
         reply_markup=get_main_menu_by_results(results, user_id),
     )
+
+    if not has_full_access(results):
+        await update.message.reply_text(
+            research_intro_text(),
+            parse_mode="Markdown",
+            reply_markup=research_intro_keyboard(),
+        )
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -140,20 +143,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if text == "Получить Код личности":
-        context.user_data.clear()
-
-        payload = get_personality_code_payload(user_id)
-        if not payload:
-            await update.message.reply_text(
-                "Сначала пройдите три базовых теста, чтобы получить ваш Код личности.",
-                reply_markup=main_menu_markup,
-            )
-            return
-
         await update.message.reply_text(
-            render_basic_personality_code(payload),
+            "Код личности открывается после завершения трёх тестов.",
             reply_markup=main_menu_markup,
-            parse_mode="Markdown",
         )
         return
 
@@ -164,16 +156,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             about_text = (
                 "Это бот психологических тестов.\n\n"
                 "Внутри доступны:\n"
-                "• Код Тени\n"
                 "• Архетип личности\n"
-                "• Уровень тревоги\n\n"
+                "• Код Тени\n"
+                "• Уровень внутреннего напряжения\n\n"
+                "После прохождения трёх тестов вы можете получить «Код личности».\n\n"
                 "Все результаты сохраняются в разделе «Мои результаты»."
             )
         else:
             about_text = (
                 "Это бот психологических тестов.\n\n"
-                "Сначала вы проходите «Код Тени», а затем бот предлагает "
-                "следующие тесты по цепочке исследования.\n\n"
+                "Вы проходите три теста по цепочке:\n"
+                "• Архетип личности\n"
+                "• Код Тени\n"
+                "• Уровень внутреннего напряжения\n\n"
+                "После этого бот собирает результаты в «Код личности».\n\n"
                 "Все результаты сохраняются в разделе «Мои результаты»."
             )
 
@@ -185,7 +181,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == "Начать исследование":
         context.user_data.clear()
-        await start_test(update, context, "shadow", TESTS["shadow"])
+        await start_test(update, context, "archetype", TESTS["archetype"])
         return
 
     if text in BUTTON_TO_TEST_KEY:
@@ -196,7 +192,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await start_test(update, context, test_key, TESTS[test_key])
         else:
             await update.message.reply_text(
-                "Сначала начните исследование с теста «Код Тени».",
+                "Сначала начните исследование. Порядок тестов: Архетип → Код Тени → Уровень внутреннего напряжения.",
                 reply_markup=main_menu_markup,
             )
         return
