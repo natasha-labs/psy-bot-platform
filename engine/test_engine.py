@@ -4,7 +4,20 @@ from telegram import (
     ReplyKeyboardMarkup,
 )
 
-from storage.results_store import save_user_result, get_user_results
+from storage.results_store import (
+    save_user_result,
+    get_user_results,
+    save_personality_code_payload,
+)
+from personality_code.aggregator import (
+    enough_for_basic_personality_code,
+    build_basic_personality_code,
+)
+from personality_code.renderer import (
+    render_basic_personality_code,
+    render_upsell_text,
+    render_upsell_keyboard,
+)
 
 BACK_BUTTON = "⬅️ Назад"
 RESTART_BUTTON = "🔄 Пройти тест заново"
@@ -34,6 +47,7 @@ def get_dynamic_main_menu(user_id):
             ["Архетип личности"],
             ["Уровень тревоги"],
             ["Мои результаты"],
+            ["Получить Код личности"],
             ["О тесте"],
         ]
     else:
@@ -105,11 +119,6 @@ def get_share_keyboard(share_text):
             ]
         ]
     )
-
-
-def has_full_access(results: dict) -> bool:
-    required = {"shadow", "archetype", "anxiety"}
-    return required.issubset(set(results.keys()))
 
 
 def get_remaining_tests_for_user(user_id, current_test_key=None):
@@ -306,7 +315,16 @@ async def handle_nav_text(update, context, main_menu_markup, tests):
     )
 
 
-async def send_result_and_continue(update, context, main_menu_markup, test_def, result_text, share_text):
+async def send_result_and_continue(
+    update,
+    context,
+    main_menu_markup,
+    test_def,
+    result_text,
+    share_text,
+    basic_personality_text=None,
+    show_upsell=False,
+):
     user = update.effective_user
     user_id = user.id if user else "unknown"
 
@@ -340,13 +358,28 @@ async def send_result_and_continue(update, context, main_menu_markup, test_def, 
             reply_markup=result_keyboard,
         )
 
+    if basic_personality_text:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=basic_personality_text,
+            parse_mode="Markdown",
+        )
+
+    if show_upsell:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=render_upsell_text(),
+            parse_mode="Markdown",
+            reply_markup=render_upsell_keyboard(),
+        )
+
     results_after_save = get_user_results(user_id)
     fresh_main_menu = get_dynamic_main_menu(user_id)
 
     if has_full_access(results_after_save):
         await context.bot.send_message(
             chat_id=chat_id,
-            text="Все тесты пройдены. Теперь в меню доступны все тесты и раздел «Мои результаты».",
+            text="Все тесты пройдены. Теперь в меню доступны все тесты, раздел «Мои результаты» и «Получить Код личности».",
             reply_markup=fresh_main_menu,
         )
         return
@@ -386,6 +419,19 @@ async def handle_callback(update, context, main_menu_markup, tests):
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text="Начните исследование.",
+            reply_markup=main_menu_markup,
+        )
+        return
+
+    if data == "full_profile_info":
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=(
+                "🔓 *Полный профиль личности*\n\n"
+                "Этот уровень скоро появится.\n\n"
+                "Здесь будут доступны дополнительные тесты и более глубокий разбор вашей личности."
+            ),
+            parse_mode="Markdown",
             reply_markup=main_menu_markup,
         )
         return
@@ -459,6 +505,7 @@ async def handle_callback(update, context, main_menu_markup, tests):
 
     if new_index >= len(test_def["questions"]):
         result_payload = test_def["build_result"](context.user_data["answers"])
+        profile_payload = test_def["build_profile_payload"](context.user_data["answers"])
 
         if isinstance(result_payload, dict):
             result_text = result_payload.get("text", "")
@@ -468,13 +515,25 @@ async def handle_callback(update, context, main_menu_markup, tests):
             share_text = None
 
         user = update.effective_user
+        basic_personality_text = None
+        show_upsell = False
+
         if user:
             save_user_result(
                 user_id=user.id,
                 test_key=test_def["key"],
                 title=test_def["title"],
                 result_text=result_text,
+                profile_payload=profile_payload,
             )
+
+            user_results = get_user_results(user.id)
+
+            if enough_for_basic_personality_code(user_results):
+                personality_payload = build_basic_personality_code(user_results)
+                save_personality_code_payload(user.id, personality_payload, version="basic_v1")
+                basic_personality_text = render_basic_personality_code(personality_payload)
+                show_upsell = True
 
         await send_result_and_continue(
             update,
@@ -483,6 +542,8 @@ async def handle_callback(update, context, main_menu_markup, tests):
             test_def,
             result_text,
             share_text,
+            basic_personality_text=basic_personality_text,
+            show_upsell=show_upsell,
         )
         return
 
