@@ -39,7 +39,7 @@ FULL_MENU = [
 BUTTON_TO_TEST_KEY = {
     "Архетип личности": "archetype",
     "Код Тени": "shadow",
-    "Уровень внутреннего напряжения": "anxiety",
+    "Внутреннее напряжение": "anxiety",
 }
 
 
