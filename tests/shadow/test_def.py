@@ -43,7 +43,7 @@ def calculate_profile(answer_values):
     main_type = sorted_profiles[0][0]
     second_type = sorted_profiles[1][0]
 
-    return percentages, main_type, second_type, sorted_profiles
+    return percentages, main_type, second_type
 
 
 def build_type_description(main_type):
@@ -129,23 +129,15 @@ def build_shadow_side(main_type):
 
 def build_growth_text(main_type):
     if main_type == "control":
-        return (
-            "Не только удерживать себя и ситуацию, но и замечать живые чувства под этим контролем."
-        )
+        return "Не только удерживать себя и ситуацию, но и замечать живые чувства под этим контролем."
 
     if main_type == "weakness":
-        return (
-            "Учиться видеть в уязвимости не слабость, а живую часть себя, которая тоже заслуживает места."
-        )
+        return "Учиться видеть в уязвимости не слабость, а живую часть себя, которая тоже заслуживает места."
 
     if main_type == "anger":
-        return (
-            "Признавать злость как энергию границ и силы, а не только как угрозу отношениям."
-        )
+        return "Признавать злость как энергию границ и силы, а не только как угрозу отношениям."
 
-    return (
-        "Не бороться со страхом, а распознавать его как внутренний сигнал, которому тоже нужна опора."
-    )
+    return "Не бороться со страхом, а распознавать его как внутренний сигнал, которому тоже нужна опора."
 
 
 def build_profile_block(percentages):
@@ -161,44 +153,23 @@ def build_profile_block(percentages):
 def build_share_text(main_type):
     shadow_type = SHADOW_DISPLAY_TYPES[main_type]
     return (
-        f"Я прошёл тест «🌑 ВАША ТЕНЕВАЯ СТОРОНА».\n\n"
+        f"Я прошёл тест «Код Тени».\n\n"
         f"Мой тип Тени — {shadow_type}\n\n"
         f"Интересно узнать, что скрывается в тебе.\n\n"
         f"Пройти тест:\n{BOT_LINK}"
     )
 
 
-def build_profile_payload(answer_values):
-    percentages, main_type, second_type, _sorted_profiles = calculate_profile(answer_values)
-
-    raw_result = build_result(answer_values)
-
-    return {
-        "test_key": "shadow",
-        "title": "🌑 ВАША ТЕНЕВАЯ СТОРОНА",
-        "main_type": main_type,
-        "main_label": SHADOW_DISPLAY_TYPES[main_type],
-        "second_type": second_type,
-        "second_label": SHADOW_DISPLAY_TYPES[second_type],
-        "percentages": percentages,
-        "summary": build_type_description(main_type),
-        "growth_point": build_growth_text(main_type),
-        "risk_zone": build_shadow_side(main_type),
-        "raw_text": raw_result["text"],
-        "share_text": raw_result["share_text"],
-    }
-
-
 def build_result(answer_values):
-    percentages, main_type, second_type, _sorted_profiles = calculate_profile(answer_values)
+    percentages, main_type, second_type = calculate_profile(answer_values)
 
-    main_type_name = SHADOW_DISPLAY_TYPES[main_type]
+    subtitle = SHADOW_DISPLAY_TYPES[main_type]
     second_type_name = SHADOW_DISPLAY_TYPES[second_type]
 
     text = (
         f"🧠 *РЕЗУЛЬТАТ ТЕСТА*\n\n"
-        f"🌑 *🌑 ВАША ТЕНЕВАЯ СТОРОНА*\n"
-        f"*{main_type_name.upper()}*\n\n"
+        f"🌑 *ВАША ТЕНЕВАЯ СТОРОНА*\n"
+        f"*{subtitle.upper()}*\n\n"
         f"{build_type_description(main_type)}\n\n"
         f"━━━━━━━━━━━━━━\n\n"
         f"📊 *ПРОФИЛЬ ТЕНИ*\n"
@@ -222,17 +193,41 @@ def build_result(answer_values):
     }
 
 
+def build_profile_payload(answer_values):
+    percentages, main_type, second_type = calculate_profile(answer_values)
+    raw_result = build_result(answer_values)
+
+    return {
+        "test_key": "shadow",
+        "title": "Код Тени",
+        "main_type": main_type,
+        "main_label": SHADOW_DISPLAY_TYPES[main_type],
+        "second_type": second_type,
+        "second_label": SHADOW_DISPLAY_TYPES[second_type],
+        "percentages": percentages,
+        "summary": build_type_description(main_type),
+        "growth_point": build_growth_text(main_type),
+        "risk_zone": build_shadow_side(main_type),
+        "raw_text": raw_result["text"],
+        "share_text": raw_result["share_text"],
+        "primary_result": main_type,
+        "secondary_result": second_type,
+        "profile_data": percentages,
+    }
+
+
 TEST_DEF = {
     "key": "shadow",
-    "title": "🌑 ВАША ТЕНЕВАЯ СТОРОНА",
+    "title": "Код Тени",
     "intro_text": (
         "*Код Тени*\n\n"
         "У каждого человека есть сторона личности,\n"
         "которую он обычно не замечает.\n\n"
-        "Иногда именно она влияет на наши реакции,\n"
-        "конфликты и решения.\n\n"
-        "Этот тест помогает увидеть\n"
-        "вашу теневую сторону."
+        "Иногда именно она влияет\n"
+        "на реакции, конфликты и решения.\n\n"
+        "Этот тест поможет увидеть\n"
+        "вашу теневую сторону.\n\n"
+        "Тест займёт около 1–2 минут."
     ),
     "intro_button_text": "Начать тест",
     "questions": questions,
