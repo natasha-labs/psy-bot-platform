@@ -146,13 +146,18 @@ def build_result(answer_values):
     second_layer_key = second_layer_candidates[0][0] if second_layer_candidates else main_level
 
     return (
-        f"🟡 *УРОВЕНЬ ТРЕВОГИ: {ANXIETY_LABELS[main_level].upper()}*\n\n"
+        f"🧠 *РЕЗУЛЬТАТ ТЕСТА*\n\n"
+        f"🧠 *УРОВЕНЬ ТРЕВОГИ*\n"
+        f"*{ANXIETY_LABELS[main_level].upper()}*\n\n"
         f"{build_main_text(main_level)}\n\n"
-        f"📊 *ВАШ ПРОФИЛЬ РЕАКЦИЙ*\n"
+        f"━━━━━━━━━━━━━━\n\n"
+        f"📊 *ПРОФИЛЬ РЕАКЦИЙ*\n"
         f"{build_profile_block(percentages)}\n\n"
+        f"━━━━━━━━━━━━━━\n\n"
         f"🌙 *ВТОРОЙ СЛОЙ*\n"
         f"{ANXIETY_LABELS[second_layer_key]}\n"
         f"{build_second_layer_text(second_layer_key)}\n\n"
+        f"━━━━━━━━━━━━━━\n\n"
         f"🌱 *ТОЧКА РОСТА*\n"
         f"{build_growth_text(main_level)}"
     )
