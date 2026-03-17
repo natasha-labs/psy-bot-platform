@@ -16,10 +16,10 @@ from personality_code.aggregator import (
     enough_for_basic_personality_code,
     build_basic_personality_code,
 )
-from personality_code.renderer import (
-    render_basic_personality_code,
-    render_upsell_text,
-    render_upsell_keyboard,
+from personality_code.renderer import render_basic_personality_code
+from personality_code.upsell_screen import (
+    get_upsell_text,
+    get_upsell_keyboard,
 )
 
 TOKEN = os.getenv("BOT_TOKEN")
@@ -224,8 +224,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         await update.message.reply_text(
-            render_upsell_text(),
-            reply_markup=render_upsell_keyboard(),
+            get_upsell_text(),
+            reply_markup=get_upsell_keyboard(),
             parse_mode="Markdown",
         )
         return
