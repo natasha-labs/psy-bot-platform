@@ -1,4 +1,5 @@
 from collections import Counter
+from tests.scale import SCALE
 from tests.anxiety.questions import questions
 
 ANXIETY_LABELS = {
@@ -8,26 +9,28 @@ ANXIETY_LABELS = {
     "very_high": "Очень высокий",
 }
 
-ANXIETY_SCORES = {
-    "low": 1,
-    "medium": 2,
-    "high": 3,
-    "very_high": 4,
-}
 
+def calculate_profile(answer_pairs):
+    scores = [answer_value for _, answer_value in answer_pairs]
+    total_score = sum(scores)
 
-def calculate_profile(answer_values):
-    counts = Counter(answer_values)
+    if total_score <= 26:
+        main_type = "low"
+    elif total_score <= 37:
+        main_type = "medium"
+    elif total_score <= 48:
+        main_type = "high"
+    else:
+        main_type = "very_high"
 
-    for key in ANXIETY_LABELS:
-        if key not in counts:
-            counts[key] = 0
-
-    total = sum(counts.values()) or 1
+    counts = Counter(scores)
+    total_answers = len(scores) or 1
 
     percentages = {
-        key: round(counts[key] / total * 100)
-        for key in ANXIETY_LABELS
+        "low": round((counts.get(1, 0) + counts.get(2, 0) * 0.5) / total_answers * 100),
+        "medium": round((counts.get(2, 0) * 0.5 + counts.get(3, 0)) / total_answers * 100),
+        "high": round((counts.get(4, 0) + counts.get(5, 0) * 0.5) / total_answers * 100),
+        "very_high": round((counts.get(5, 0) * 0.5) / total_answers * 100),
     }
 
     sorted_profiles = sorted(
@@ -35,116 +38,56 @@ def calculate_profile(answer_values):
         key=lambda item: item[1],
         reverse=True,
     )
-
     second_type = sorted_profiles[1][0]
-    score = sum(ANXIETY_SCORES[value] for value in answer_values)
 
-    if 20 <= score <= 34:
-        main_type = "low"
-    elif 35 <= score <= 49:
-        main_type = "medium"
-    elif 50 <= score <= 64:
-        main_type = "high"
-    else:
-        main_type = "very_high"
-
-    return percentages, main_type, second_type, score
+    return percentages, main_type, second_type, total_score
 
 
 def build_summary(main_type):
     if main_type == "low":
         return "Сейчас внутреннее напряжение не управляет вашим фоном и не забирает много сил."
-
     if main_type == "medium":
         return "Внутреннее напряжение заметно присутствует, но пока не захватывает всё пространство."
-
     if main_type == "high":
         return "Внутреннее напряжение уже заметно влияет на ваше состояние, мысли и реакции."
-
     return "Сейчас внутреннее напряжение занимает много внутреннего пространства и влияет на ощущение опоры."
 
 
 def build_main_text(main_type):
     if main_type == "low":
-        return (
-            "Даже при неопределённости вы чаще сохраняете опору, способность думать ясно "
-            "и не перегружать себя лишними сценариями."
-        )
-
+        return "Даже при неопределённости вы чаще сохраняете опору и не перегружаете себя лишними сценариями."
     if main_type == "medium":
-        return (
-            "В напряжённые моменты оно может усиливаться, влиять на мысли, сомнения "
-            "и внутреннее напряжение, но опора у вас сохраняется."
-        )
-
+        return "В напряжённые моменты оно может усиливаться, влиять на мысли и внутреннее напряжение, но опора у вас сохраняется."
     if main_type == "high":
-        return (
-            "Оно может включаться не только в сложных ситуациях, но и фоном: "
-            "через ожидание проблем, внутреннее напряжение, прокручивание мыслей "
-            "и трудность полностью выдохнуть."
-        )
-
-    return (
-        "Оно может влиять на тело, концентрацию, решения и ощущение безопасности, "
-        "из-за чего даже обычные ситуации переживаются как перегрузка или скрытая угроза."
-    )
+        return "Оно может включаться фоном: через ожидание проблем, прокручивание мыслей и трудность полностью выдохнуть."
+    return "Оно может влиять на тело, концентрацию, решения и ощущение безопасности, из-за чего даже обычные ситуации переживаются как перегрузка."
 
 
 def build_second_text(second_type):
     if second_type == "low":
-        return (
-            "Во втором слое видно, что часть вас всё ещё умеет сохранять спокойствие, "
-            "даже если в отдельных ситуациях напряжение усиливается."
-        )
-
+        return "Во втором слое видно, что часть вас всё ещё умеет сохранять спокойствие."
     if second_type == "medium":
-        return (
-            "Во втором слое видно привычное внутреннее волнение, которое становится заметнее "
-            "в ситуациях ожидания, неопределённости или перегруза."
-        )
-
+        return "Во втором слое видно привычное внутреннее волнение, которое становится заметнее в ситуациях ожидания и перегруза."
     if second_type == "high":
-        return (
-            "Во втором слое видно, что напряжение у вас может быстро нарастать "
-            "и переходить из обычного волнения в устойчивую тревожную реакцию."
-        )
-
-    return (
-        "Во втором слое видно, что за напряжением может стоять уже не только тревога, "
-        "но и накопленная внутренняя перегрузка или истощение."
-    )
+        return "Во втором слое видно, что напряжение у вас может быстро нарастать и переходить в устойчивую тревожную реакцию."
+    return "Во втором слое видно, что за напряжением может стоять уже не только тревога, но и накопленная перегрузка."
 
 
 def build_growth_text(main_type):
     if main_type == "low":
-        return (
-            "Ваша точка роста — не игнорировать напряжение полностью, "
-            "а замечать его как ранний сигнал в действительно важных ситуациях."
-        )
-
+        return "Ваша точка роста — не игнорировать напряжение полностью, а замечать его как ранний сигнал."
     if main_type == "medium":
-        return (
-            "Ваша точка роста — раньше замечать момент, когда обычное волнение начинает "
-            "превращаться во внутренний перегруз, и возвращать себе опору до усиления напряжения."
-        )
-
+        return "Ваша точка роста — раньше замечать момент, когда обычное волнение превращается во внутренний перегруз."
     if main_type == "high":
-        return (
-            "Ваша точка роста — учиться отделять реальные риски от тревожных сценариев "
-            "и раньше снижать внутреннее напряжение, пока оно не стало постоянным фоном."
-        )
+        return "Ваша точка роста — учиться отделять реальные риски от тревожных сценариев."
+    return "Ваша точка роста — не пытаться всё выдерживать только усилием воли, а выстраивать систему восстановления."
+
+
+def build_result(answer_pairs):
+    percentages, main_type, second_type, total_score = calculate_profile(answer_pairs)
 
     return (
-        "Ваша точка роста — не пытаться всё выдерживать только усилием воли, "
-        "а выстраивать систему восстановления, снижения перегрузки и возвращения чувства безопасности."
-    )
-
-
-def build_result(answer_values):
-    percentages, main_type, second_type, score = calculate_profile(answer_values)
-
-    return (
-        f"⚡ *УРОВЕНЬ ВНУТРЕННЕГО НАПРЯЖЕНИЯ*\n\n"
+        f"⚡ *УРОВЕНЬ ТРЕВОГИ*\n\n"
         f"*{ANXIETY_LABELS[main_type].upper()}*\n\n"
         f"{build_summary(main_type)}\n\n"
         f"{build_main_text(main_type)}\n\n"
@@ -162,13 +105,12 @@ def build_result(answer_values):
     )
 
 
-def build_profile_payload(answer_values):
-    percentages, main_type, second_type, score = calculate_profile(answer_values)
-    raw_text = build_result(answer_values)
+def build_profile_payload(answer_pairs):
+    percentages, main_type, second_type, total_score = calculate_profile(answer_pairs)
 
     return {
         "test_key": "anxiety",
-        "title": "Уровень внутреннего напряжения",
+        "title": "Уровень тревоги",
         "main_type": main_type,
         "main_label": ANXIETY_LABELS[main_type],
         "second_type": second_type,
@@ -177,28 +119,21 @@ def build_profile_payload(answer_values):
         "summary": build_summary(main_type),
         "growth_point": build_growth_text(main_type),
         "risk_zone": build_second_text(second_type),
-        "raw_text": raw_text,
-        "score": score,
+        "raw_text": build_result(answer_pairs),
+        "score": total_score,
     }
 
 
 TEST_DEF = {
     "key": "anxiety",
-    "title": "Уровень внутреннего напряжения",
+    "title": "Уровень тревоги",
     "intro_text": (
-        "Уровень внутреннего напряжения\n\n"
-        "Даже когда внешне всё спокойно,\n"
-        "внутри может накапливаться напряжение.\n\n"
-        "Оно влияет на мысли, решения\n"
-        "и реакции на события.\n\n"
-        "Этот тест поможет понять,\n"
-        "насколько внутреннее напряжение\n"
-        "сейчас влияет на ваше состояние.\n\n"
-        "Тест займёт около 1–2 минут."
+        "Уровень тревоги\n\n"
+        "Этот тест помогает увидеть, насколько тревога влияет на ваше состояние, мысли и реакции."
     ),
-    "questions": questions,
-    "get_option_text": lambda option: option["text"],
-    "get_option_value": lambda option: option["value"],
+    "question_bank": questions,
+    "scale": SCALE,
+    "get_question_text": lambda question: question["text"],
     "build_result": build_result,
     "build_profile_payload": build_profile_payload,
 }
