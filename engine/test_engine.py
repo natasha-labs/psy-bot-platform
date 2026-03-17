@@ -10,12 +10,15 @@ from personality_code.aggregator import (
     enough_for_basic_personality_code,
     build_basic_personality_code,
 )
-from personality_code.renderer import (
-    render_basic_personality_code,
-    render_upsell_text,
-    render_upsell_keyboard,
-    render_basic_code_ready_text,
-    render_basic_code_ready_keyboard,
+from personality_code.renderer import render_basic_personality_code
+from personality_code.completion_screen import (
+    get_completion_text,
+    get_completion_keyboard,
+)
+from personality_code.upsell_screen import (
+    get_upsell_text,
+    get_upsell_keyboard,
+    get_full_profile_info_text,
 )
 
 BACK_BUTTON = "⬅️ Назад"
@@ -84,23 +87,18 @@ def build_question_text(title: str, questions, index: int) -> str:
     return (
         f"Тест: {title}\n"
         f"Вопрос {current} / {total}\n\n"
-        f"{question['text']}\n\n"
+        f"{question['text']}"
     )
 
 
-def get_question_keyboard(question, selected_index=None):
+def get_question_keyboard(question):
     rows = []
 
     for option_index, option in enumerate(question["options"]):
-        text = option["text"]
-
-        if selected_index is not None and selected_index == option_index:
-            text = f"✔️ ВЫБРАНО: {text}"
-
         rows.append(
             [
                 InlineKeyboardButton(
-                    text,
+                    option["text"],
                     callback_data=f"ans:{option_index}",
                 )
             ]
@@ -243,14 +241,13 @@ async def send_result_and_continue(update, context, main_menu_markup, test_def, 
     )
 
     results_after_save = get_user_results(user_id)
-    fresh_main_menu = get_dynamic_main_menu(user_id)
 
     if has_full_access(results_after_save):
         await context.bot.send_message(
             chat_id=chat_id,
-            text=render_basic_code_ready_text(),
+            text=get_completion_text(),
             parse_mode="Markdown",
-            reply_markup=render_basic_code_ready_keyboard(),
+            reply_markup=get_completion_keyboard(),
         )
         return
 
@@ -269,7 +266,7 @@ async def send_result_and_continue(update, context, main_menu_markup, test_def, 
     await context.bot.send_message(
         chat_id=chat_id,
         text="Исследование завершено.",
-        reply_markup=fresh_main_menu,
+        reply_markup=get_dynamic_main_menu(user_id),
     )
 
 
@@ -357,21 +354,16 @@ async def handle_callback(update, context, main_menu_markup, tests):
 
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text=render_upsell_text(),
+            text=get_upsell_text(),
             parse_mode="Markdown",
-            reply_markup=render_upsell_keyboard(),
+            reply_markup=get_upsell_keyboard(),
         )
         return
 
     if data == "full_profile_info":
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text=(
-                "🔒 *ПОЛНЫЙ ПРОФИЛЬ ЛИЧНОСТИ*\n\n"
-                "Полный профиль пока находится в разработке.\n\n"
-                "Скоро здесь появится расширенная версия системы «Код личности» "
-                "с дополнительными тестами и более глубокой интерпретацией."
-            ),
+            text=get_full_profile_info_text(),
             parse_mode="Markdown",
         )
         return
@@ -466,9 +458,9 @@ async def handle_callback(update, context, main_menu_markup, tests):
     )
 
     selected_view = (
-    f"{question_text}\n"
-    f"✅ {answer_text}"
-)
+        f"{question_text}\n"
+        f"✅ {answer_text}"
+    )
 
     await query.edit_message_text(
         text=selected_view,
