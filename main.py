@@ -1,5 +1,5 @@
 import os
-from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -47,7 +47,7 @@ def is_admin(user_id) -> bool:
 
 
 def has_full_access(results: dict) -> bool:
-    required = {"shadow", "archetype", "anxiety"}
+    required = {"archetype", "shadow", "anxiety"}
     return required.issubset(set(results.keys()))
 
 
@@ -77,7 +77,6 @@ def build_results_text(results: dict) -> str:
 
         item = results[key]
         lines.append(f"*{item['title']}*")
-        lines.append(f"Дата: {item['saved_at']}")
         lines.append(item["result_text"])
         lines.append("━━━━━━━━━━━━━━")
 
@@ -104,31 +103,24 @@ def build_research_intro_text():
     )
 
 
-def build_research_intro_keyboard():
-    return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("Начать исследование", callback_data="start_research")]
-        ]
-    )
-
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
 
     user = update.effective_user
     user_id = user.id if user else "unknown"
     results = get_user_results(user_id)
+    main_menu_markup = get_main_menu_by_results(results, user_id)
 
     await update.message.reply_text(
         "Добро пожаловать в систему «Код личности».",
-        reply_markup=get_main_menu_by_results(results, user_id),
+        reply_markup=main_menu_markup,
     )
 
     if not has_full_access(results):
         await update.message.reply_text(
             build_research_intro_text(),
             parse_mode="Markdown",
-            reply_markup=build_research_intro_keyboard(),
+            reply_markup=main_menu_markup,
         )
 
 
@@ -169,14 +161,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    if text == "Получить Код личности":
-        context.user_data.clear()
-        await update.message.reply_text(
-            "Сначала завершите три базовых теста или нажмите кнопку «Получить код личности» на экране завершения.",
-            reply_markup=main_menu_markup,
-        )
-        return
-
     if text == "О тесте":
         context.user_data.clear()
 
@@ -187,7 +171,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "• Архетип личности\n"
                 "• Код Тени\n"
                 "• Внутреннее напряжение\n\n"
-                "После прохождения трёх тестов вы можете получить «Код личности».\n\n"
+                "После прохождения трёх тестов можно получить «Код личности».\n\n"
                 "Все результаты сохраняются в разделе «Мои результаты»."
             )
         else:
@@ -210,6 +194,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == "Начать исследование":
         context.user_data.clear()
         await start_test(update, context, "archetype", TESTS["archetype"])
+        return
+
+    if text == "Получить Код личности":
+        context.user_data.clear()
+        await update.message.reply_text(
+            "Сначала завершите три базовых теста.",
+            reply_markup=main_menu_markup,
+        )
         return
 
     if text in BUTTON_TO_TEST_KEY:
@@ -241,14 +233,17 @@ async def handle_all_callbacks(update: Update, context: ContextTypes.DEFAULT_TYP
     user_id = user.id if user else "unknown"
     results = get_user_results(user_id)
     main_menu_markup = get_main_menu_by_results(results, user_id)
+
     await handle_callback(update, context, main_menu_markup, TESTS)
 
 
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(handle_all_callbacks))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
     app.run_polling()
 
 
