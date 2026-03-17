@@ -466,7 +466,7 @@ async def handle_callback(update, context, main_menu_markup, tests):
     )
 
     selected_view = (
-    f"{question_text}\n\n"
+    f"{question_text}\n"
     f"✅ {answer_text}"
 )
 
