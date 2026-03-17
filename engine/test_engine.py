@@ -468,10 +468,9 @@ async def handle_callback(update, context, main_menu_markup, tests):
     )
 
     selected_view = (
-        f"{question_text}\n\n"
-        f"✔️ Вы выбрали:\n"
-        f"{answer_text}"
-    )
+    f"{question_text}\n\n"
+    f"✅ {answer_text}"
+)
 
     await query.edit_message_text(
         text=selected_view,
