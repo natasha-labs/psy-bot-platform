@@ -1,4 +1,5 @@
 import asyncio
+import random
 from telegram import (
     InlineKeyboardMarkup,
     InlineKeyboardButton,
@@ -30,7 +31,7 @@ TEST_SEQUENCE = ["archetype", "shadow", "anxiety"]
 TEST_BUTTON_LABELS = {
     "archetype": "Архетип личности",
     "shadow": "Код Тени",
-    "anxiety": "Внутреннее напряжение",
+    "anxiety": "Уровень тревоги",
 }
 
 
@@ -55,7 +56,7 @@ def get_dynamic_main_menu(user_id):
         keyboard = [
             ["Архетип личности"],
             ["Код Тени"],
-            ["Внутреннее напряжение"],
+            ["Уровень тревоги"],
             ["Мои результаты"],
             ["Получить Код личности"],
             ["О тесте"],
@@ -79,27 +80,26 @@ def get_intro_keyboard(test_key: str):
     )
 
 
-def build_question_text(title: str, questions, index: int) -> str:
-    question = questions[index]
+def build_question_text(title: str, questions, index: int, question_text: str) -> str:
     total = len(questions)
     current = index + 1
 
     return (
         f"Тест: {title}\n"
         f"Вопрос {current} / {total}\n\n"
-        f"{question['text']}"
+        f"{question_text}"
     )
 
 
-def get_question_keyboard(question):
+def get_question_keyboard(scale):
     rows = []
 
-    for option_index, option in enumerate(question["options"]):
+    for text, value in scale:
         rows.append(
             [
                 InlineKeyboardButton(
-                    option["text"],
-                    callback_data=f"ans:{option_index}",
+                    text,
+                    callback_data=f"ans:{value}",
                 )
             ]
         )
@@ -124,22 +124,23 @@ def get_finish_keyboard():
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("Показать результат", callback_data="show_result")],
-            [InlineKeyboardButton("Пройти тест заново", callback_data="restart_test")],
+            [InlineKeyboardButton("Изменить ответы", callback_data="restart_test")],
         ]
     )
 
 
-def build_finish_text(total_questions):
-    return (
-        "━━━━━━━━━━━━━━\n\n"
-        "Тест завершён\n\n"
-        f"Вы ответили на {total_questions} вопросов.\n\n"
-        "Система анализирует:\n"
-        "• ваши реакции\n"
-        "• эмоциональные паттерны\n"
-        "• поведенческие стратегии\n\n"
-        "━━━━━━━━━━━━━━"
-    )
+def build_finish_text(answer_history):
+    lines = [
+        "Тест завершён",
+        "",
+        "Вот как вы отвечали:",
+        "",
+    ]
+
+    for item in answer_history:
+        lines.append(f"• {item['question']} — {item['answer_text']}")
+
+    return "\n".join(lines)
 
 
 def get_next_test_key(user_id, current_test_key=None):
@@ -173,10 +174,13 @@ def get_continue_keyboard(next_test_key):
 
 def build_continue_text(next_test_key):
     label = TEST_BUTTON_LABELS.get(next_test_key, "Следующий тест")
-    return (
-        "➡️ Продолжить исследование\n\n"
-        f"Следующий тест: *{label}*"
-    )
+    return f"Следующий тест: *{label}*"
+
+
+def select_random_questions(question_bank, count=15):
+    selected = random.sample(question_bank, count)
+    random.shuffle(selected)
+    return selected
 
 
 async def send_intro_screen(update, context, test_key: str, test_def):
@@ -186,6 +190,8 @@ async def send_intro_screen(update, context, test_key: str, test_def):
     context.user_data["stage"] = "intro"
     context.user_data["index"] = 0
     context.user_data["answers"] = []
+    context.user_data["answer_history"] = []
+    context.user_data["questions"] = []
     context.user_data["test_message_id"] = None
 
     await context.bot.send_message(
@@ -198,10 +204,18 @@ async def send_intro_screen(update, context, test_key: str, test_def):
 
 async def send_question(update, context, test_def, index: int):
     chat_id = update.effective_chat.id
-    question = test_def["questions"][index]
+    questions = context.user_data["questions"]
+    question = questions[index]
+    question_text = test_def["get_question_text"](question)
 
-    text = build_question_text(test_def["title"], test_def["questions"], index)
-    keyboard = get_question_keyboard(question)
+    text = build_question_text(
+        test_def["title"],
+        questions,
+        index,
+        question_text,
+    )
+
+    keyboard = get_question_keyboard(test_def["scale"])
 
     msg = await context.bot.send_message(
         chat_id=chat_id,
@@ -221,6 +235,8 @@ async def begin_test(update, context, test_key: str, test_def):
     context.user_data["stage"] = "questions"
     context.user_data["index"] = 0
     context.user_data["answers"] = []
+    context.user_data["answer_history"] = []
+    context.user_data["questions"] = select_random_questions(test_def["question_bank"], 15)
     context.user_data["test_message_id"] = None
 
     await send_question(update, context, test_def, 0)
@@ -379,23 +395,13 @@ async def handle_callback(update, context, main_menu_markup, tests):
     test_def = tests[current_test]
 
     if data == "restart_test":
-        context.user_data["index"] = 0
-        context.user_data["answers"] = []
-        context.user_data["stage"] = "questions"
-        context.user_data["test_message_id"] = None
-
-        try:
-            await query.edit_message_reply_markup(reply_markup=None)
-        except Exception:
-            pass
-
-        await send_question(update, context, test_def, 0)
+        await begin_test(update, context, current_test, test_def)
         return
 
     if data == "show_result":
-        answers = context.user_data.get("answers", [])
+        answer_pairs = context.user_data.get("answers", [])
 
-        result_payload = test_def["build_result"](answers)
+        result_payload = test_def["build_result"](answer_pairs)
 
         if isinstance(result_payload, dict):
             result_text = result_payload.get("text", "")
@@ -412,7 +418,7 @@ async def handle_callback(update, context, main_menu_markup, tests):
                 title=test_def["title"],
                 result_text=result_text,
                 profile_payload=(
-                    test_def["build_profile_payload"](answers)
+                    test_def["build_profile_payload"](answer_pairs)
                     if "build_profile_payload" in test_def
                     else None
                 ),
@@ -439,26 +445,21 @@ async def handle_callback(update, context, main_menu_markup, tests):
         return
 
     index = context.user_data.get("index", 0)
-    current_question = test_def["questions"][index]
+    questions = context.user_data["questions"]
+    current_question = questions[index]
 
-    option_index = int(data.split(":")[1])
+    answer_value = int(data.split(":")[1])
 
-    if option_index < 0 or option_index >= len(current_question["options"]):
-        await query.answer("Такого варианта нет", show_alert=False)
-        return
+    answer_text = None
+    for text, value in test_def["scale"]:
+        if value == answer_value:
+            answer_text = text
+            break
 
-    selected_option = current_question["options"][option_index]
-    answer_value = test_def["get_option_value"](selected_option)
-    answer_text = test_def["get_option_text"](selected_option)
-
-    question_text = build_question_text(
-        test_def["title"],
-        test_def["questions"],
-        index,
-    )
+    question_text = test_def["get_question_text"](current_question)
 
     selected_view = (
-        f"{question_text}\n"
+        f"{build_question_text(test_def['title'], questions, index, question_text)}\n"
         f"✅ {answer_text}"
     )
 
@@ -467,26 +468,27 @@ async def handle_callback(update, context, main_menu_markup, tests):
         parse_mode="Markdown",
     )
 
-    context.user_data["answers"].append(answer_value)
+    context.user_data["answers"].append((current_question, answer_value))
+    context.user_data["answer_history"].append(
+        {
+            "question": question_text,
+            "answer_text": answer_text,
+        }
+    )
     context.user_data["index"] = index + 1
 
     await asyncio.sleep(0.4)
 
     new_index = context.user_data["index"]
 
-    if new_index >= len(test_def["questions"]):
+    if new_index >= len(questions):
         context.user_data["stage"] = "finished"
 
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text=build_finish_text(len(test_def["questions"])),
+            text=build_finish_text(context.user_data["answer_history"]),
             reply_markup=get_finish_keyboard(),
         )
         return
 
-    await send_question(
-        update,
-        context,
-        test_def,
-        new_index,
-    )
+    await send_question(update, context, test_def, new_index)
