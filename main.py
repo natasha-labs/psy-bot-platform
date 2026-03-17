@@ -9,7 +9,7 @@ from telegram.ext import (
     filters,
 )
 
-from engine.test_engine import start_test, handle_nav_text, handle_callback
+from engine.test_engine import start_test, handle_callback
 from tests.registry import TESTS
 from storage.results_store import get_user_results, delete_user_results
 
