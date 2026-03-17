@@ -12,6 +12,15 @@ from telegram.ext import (
 from engine.test_engine import start_test, handle_callback
 from tests.registry import TESTS
 from storage.results_store import get_user_results, delete_user_results
+from personality_code.aggregator import (
+    enough_for_basic_personality_code,
+    build_basic_personality_code,
+)
+from personality_code.renderer import (
+    render_basic_personality_code,
+    render_upsell_text,
+    render_upsell_keyboard,
+)
 
 TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = 5750354905
@@ -109,18 +118,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id if user else "unknown"
     results = get_user_results(user_id)
-    main_menu_markup = get_main_menu_by_results(results, user_id)
 
     await update.message.reply_text(
         "Добро пожаловать в систему «Код личности».",
-        reply_markup=main_menu_markup,
+        reply_markup=get_main_menu_by_results(results, user_id),
     )
 
     if not has_full_access(results):
         await update.message.reply_text(
             build_research_intro_text(),
             parse_mode="Markdown",
-            reply_markup=main_menu_markup,
+            reply_markup=get_main_menu_by_results(results, user_id),
         )
 
 
@@ -198,9 +206,27 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == "Получить Код личности":
         context.user_data.clear()
+
+        if not enough_for_basic_personality_code(results):
+            await update.message.reply_text(
+                "Сначала завершите три базовых теста.",
+                reply_markup=main_menu_markup,
+            )
+            return
+
+        payload = build_basic_personality_code(results)
+        rendered = render_basic_personality_code(payload)
+
         await update.message.reply_text(
-            "Сначала завершите три базовых теста.",
+            rendered,
             reply_markup=main_menu_markup,
+            parse_mode="Markdown",
+        )
+
+        await update.message.reply_text(
+            render_upsell_text(),
+            reply_markup=render_upsell_keyboard(),
+            parse_mode="Markdown",
         )
         return
 
@@ -234,11 +260,9 @@ async def handle_all_callbacks(update: Update, context: ContextTypes.DEFAULT_TYP
 
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
-
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(handle_all_callbacks))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-
     app.run_polling()
 
 
