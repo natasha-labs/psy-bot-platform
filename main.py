@@ -217,11 +217,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         return
 
-    current_test = context.user_data.get("test")
-    if current_test:
-        await handle_nav_text(update, context, main_menu_markup, TESTS)
-        return
-
     await update.message.reply_text(
         "Используйте кнопки меню ниже.",
         reply_markup=main_menu_markup,
