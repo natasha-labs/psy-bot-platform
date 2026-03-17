@@ -1,29 +1,18 @@
 from collections import Counter
 from tests.shadow.questions import questions
 
-
-SHADOW_DISPLAY_TYPES = {
+SHADOW_LABELS = {
     "control": "Контролёр",
     "weakness": "Ранимый",
     "anger": "Бунтарь",
     "fear": "Стратег",
 }
 
-BOT_LINK = "https://t.me/KodLichnostiBot"
-
-
-def get_option_text(option):
-    return option["text"]
-
-
-def get_option_value(option):
-    return option["value"]
-
 
 def calculate_profile(answer_values):
     counts = Counter(answer_values)
 
-    for key in SHADOW_DISPLAY_TYPES:
+    for key in SHADOW_LABELS:
         if key not in counts:
             counts[key] = 0
 
@@ -31,7 +20,7 @@ def calculate_profile(answer_values):
 
     percentages = {
         key: round(counts[key] / total * 100)
-        for key in SHADOW_DISPLAY_TYPES
+        for key in SHADOW_LABELS
     }
 
     sorted_profiles = sorted(
@@ -46,42 +35,52 @@ def calculate_profile(answer_values):
     return percentages, main_type, second_type
 
 
+def build_summary(main_type):
+    if main_type == "control":
+        return "Ваша теневая сторона связана с потребностью держать себя, чувства и ситуацию под контролем."
+
+    if main_type == "weakness":
+        return "Ваша теневая сторона связана с глубокой чувствительностью и потребностью в эмоциональной безопасности."
+
+    if main_type == "anger":
+        return "Ваша теневая сторона связана с подавленной злостью, внутренним протестом и темой границ."
+
+    return "Ваша теневая сторона связана с настороженностью, ожиданием угрозы и внутренней защитой."
+
+
 def build_type_description(main_type):
     if main_type == "control":
         return (
-            "Этот тип Тени связан с сильной внутренней потребностью держать ситуацию под контролем.\n\n"
-            "Внутри может быть много напряжения и ощущение, что расслабляться опасно. "
-            "Контролёр часто старается управлять ситуацией, людьми или своими эмоциями, "
-            "чтобы не столкнуться с хаосом или уязвимостью."
+            "Снаружи это может выглядеть как собранность и сила, "
+            "а внутри часто жить напряжение и ощущение, что расслабляться опасно.\n\n"
+            "Контроль становится способом удержать опору и не столкнуться с хаосом или уязвимостью."
         )
 
     if main_type == "weakness":
         return (
-            "Этот тип Тени связан с глубокой чувствительностью и той частью вас, "
-            "которую долго приходилось прятать, чтобы не быть слишком открытым или беззащитным.\n\n"
             "Снаружи это может выглядеть как спокойствие или сдержанность, "
-            "а внутри жить ранимость, потребность в бережности и страх быть уязвимо увиденным."
+            "а внутри жить ранимость, потребность в бережности и страх быть слишком открыто увиденным.\n\n"
+            "Эта часть долго училась прятаться, чтобы не быть беззащитной."
         )
 
     if main_type == "anger":
         return (
-            "Этот тип Тени связан с подавленной злостью, силой и внутренним протестом.\n\n"
-            "Бунтарская часть появляется там, где слишком долго приходилось терпеть, "
-            "сдерживаться или не позволять себе открыто защищать границы."
+            "Снаружи это может проявляться как резкость, раздражение или сопротивление давлению.\n\n"
+            "Внутри здесь много силы, энергии протеста и желания не позволять нарушать ваши границы."
         )
 
     return (
-        "Этот тип Тени связан со скрытой настороженностью, внутренним напряжением и ожиданием угрозы.\n\n"
-        "Стратегическая часть помогает заранее считывать риски и не терять осторожность, "
-        "но в напряжённые периоды может усиливать тревогу и ощущение небезопасности."
+        "Снаружи это может выглядеть как осторожность и собранность, "
+        "а внутри жить постоянное считывание рисков и ожидание угрозы.\n\n"
+        "Эта часть помогает выживать, но может удерживать психику в напряжении."
     )
 
 
 def build_second_interpretation(second_type):
     if second_type == "control":
         return (
-            "Во втором слое у вас есть контролирующая часть: она включается там, где важно удержать ситуацию, "
-            "не распасться и не потерять опору."
+            "Во втором слое у вас есть контролирующая часть: она включается там, "
+            "где важно удержать ситуацию, не распасться и не потерять опору."
         )
 
     if second_type == "weakness":
@@ -105,8 +104,8 @@ def build_second_interpretation(second_type):
 def build_shadow_side(main_type):
     if main_type == "control":
         return (
-            "В перекосе этот тип может уходить в жёсткость, перенапряжение и невозможность расслабиться, "
-            "даже когда опасности уже нет."
+            "В перекосе этот тип может уходить в жёсткость, перенапряжение "
+            "и невозможность расслабиться, даже когда опасности уже нет."
         )
 
     if main_type == "weakness":
@@ -122,97 +121,66 @@ def build_shadow_side(main_type):
         )
 
     return (
-        "В перекосе этот тип может жить в постоянной настороженности, ожидать угрозу заранее "
-        "и терять чувство внутренней безопасности."
+        "В перекосе этот тип может жить в постоянной настороженности, "
+        "ожидать угрозу заранее и терять чувство внутренней безопасности."
     )
 
 
-def build_growth_text(main_type):
+def build_growth_point(main_type):
     if main_type == "control":
-        return "Не только удерживать себя и ситуацию, но и замечать живые чувства под этим контролем."
+        return "Ваша точка роста — не только удерживать ситуацию, но и замечать живые чувства под этим контролем."
 
     if main_type == "weakness":
-        return "Учиться видеть в уязвимости не слабость, а живую часть себя, которая тоже заслуживает места."
+        return "Ваша точка роста — учиться видеть в уязвимости не слабость, а живую часть себя."
 
     if main_type == "anger":
-        return "Признавать злость как энергию границ и силы, а не только как угрозу отношениям."
+        return "Ваша точка роста — признавать злость как энергию границ, а не только как угрозу."
 
-    return "Не бороться со страхом, а распознавать его как внутренний сигнал, которому тоже нужна опора."
-
-
-def build_profile_block(percentages):
-    order = ["control", "weakness", "anger", "fear"]
-    lines = []
-
-    for key in order:
-        lines.append(f"{SHADOW_DISPLAY_TYPES[key]} — {percentages[key]}%")
-
-    return "\n".join(lines)
-
-
-def build_share_text(main_type):
-    shadow_type = SHADOW_DISPLAY_TYPES[main_type]
-    return (
-        f"Я прошёл тест «Код Тени».\n\n"
-        f"Мой тип Тени — {shadow_type}\n\n"
-        f"Интересно узнать, что скрывается в тебе.\n\n"
-        f"Пройти тест:\n{BOT_LINK}"
-    )
+    return "Ваша точка роста — не бороться со страхом, а распознавать его как важный внутренний сигнал."
 
 
 def build_result(answer_values):
     percentages, main_type, second_type = calculate_profile(answer_values)
 
-    subtitle = SHADOW_DISPLAY_TYPES[main_type]
-    second_type_name = SHADOW_DISPLAY_TYPES[second_type]
-
-    text = (
-        f"🧠 *РЕЗУЛЬТАТ ТЕСТА*\n\n"
-        f"🌑 *ВАША ТЕНЕВАЯ СТОРОНА*\n"
-        f"*{subtitle.upper()}*\n\n"
+    return (
+        f"🌑 *ТЕНЕВАЯ СТОРОНА*\n\n"
+        f"*{SHADOW_LABELS[main_type].upper()}*\n\n"
+        f"{build_summary(main_type)}\n\n"
         f"{build_type_description(main_type)}\n\n"
         f"━━━━━━━━━━━━━━\n\n"
-        f"📊 *ПРОФИЛЬ ТЕНИ*\n"
-        f"{build_profile_block(percentages)}\n\n"
-        f"━━━━━━━━━━━━━━\n\n"
-        f"🌘 *ВТОРОЙ СЛОЙ ТЕНИ*\n"
-        f"{second_type_name}\n"
+        f"*ПРОФИЛЬ ТЕНИ*\n"
+        f"Контролёр — {percentages['control']}%\n"
+        f"Ранимый — {percentages['weakness']}%\n"
+        f"Бунтарь — {percentages['anger']}%\n"
+        f"Стратег — {percentages['fear']}%\n\n"
+        f"🌘 *ВТОРОЙ СЛОЙ*\n"
+        f"{SHADOW_LABELS[second_type]}\n"
         f"{build_second_interpretation(second_type)}\n\n"
-        f"━━━━━━━━━━━━━━\n\n"
         f"⚠️ *РИСК ПЕРЕКОСА*\n"
         f"{build_shadow_side(main_type)}\n\n"
         f"🌱 *ТОЧКА РОСТА*\n"
-        f"{build_growth_text(main_type)}\n\n"
+        f"{build_growth_point(main_type)}\n\n"
         f"Тень не делает человека плохим.\n"
         f"Она показывает ту силу или чувствительность, которую психика когда-то научилась прятать."
     )
 
-    return {
-        "text": text,
-        "share_text": build_share_text(main_type),
-    }
-
 
 def build_profile_payload(answer_values):
     percentages, main_type, second_type = calculate_profile(answer_values)
-    raw_result = build_result(answer_values)
+    raw_text = build_result(answer_values)
 
     return {
         "test_key": "shadow",
         "title": "Код Тени",
         "main_type": main_type,
-        "main_label": SHADOW_DISPLAY_TYPES[main_type],
+        "main_label": SHADOW_LABELS[main_type],
         "second_type": second_type,
-        "second_label": SHADOW_DISPLAY_TYPES[second_type],
+        "second_label": SHADOW_LABELS[second_type],
         "percentages": percentages,
-        "summary": build_type_description(main_type),
-        "growth_point": build_growth_text(main_type),
+        "summary": build_summary(main_type),
+        "growth_point": build_growth_point(main_type),
         "risk_zone": build_shadow_side(main_type),
-        "raw_text": raw_result["text"],
-        "share_text": raw_result["share_text"],
-        "primary_result": main_type,
-        "secondary_result": second_type,
-        "profile_data": percentages,
+        "raw_text": raw_text,
     }
 
 
@@ -220,7 +188,7 @@ TEST_DEF = {
     "key": "shadow",
     "title": "Код Тени",
     "intro_text": (
-        "*Код Тени*\n\n"
+        "Код Тени\n\n"
         "У каждого человека есть сторона личности,\n"
         "которую он обычно не замечает.\n\n"
         "Иногда именно она влияет\n"
@@ -229,10 +197,9 @@ TEST_DEF = {
         "вашу теневую сторону.\n\n"
         "Тест займёт около 1–2 минут."
     ),
-    "intro_button_text": "Начать тест",
     "questions": questions,
-    "get_option_text": get_option_text,
-    "get_option_value": get_option_value,
+    "get_option_text": lambda option: option["text"],
+    "get_option_value": lambda option: option["value"],
     "build_result": build_result,
     "build_profile_payload": build_profile_payload,
 }
