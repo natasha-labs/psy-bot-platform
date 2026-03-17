@@ -1,6 +1,3 @@
-from telegram import InlineKeyboardMarkup, InlineKeyboardButton
-
-
 def render_basic_personality_code(payload):
     sections = payload.get("sections", {})
 
@@ -52,6 +49,18 @@ def render_basic_personality_code(payload):
     return "\n".join(line for line in lines if line is not None)
 
 
+def render_basic_code_ready_text():
+    return (
+        "✨ *Ваш базовый код личности готов*\n\n"
+        "На основе трёх тестов мы собрали\n"
+        "ваш начальный психологический профиль.\n\n"
+        "Он показывает:\n\n"
+        "• как вы проявляетесь в мире\n"
+        "• какие реакции скрыты\n"
+        "• что влияет на ваши решения"
+    )
+
+
 def render_upsell_text():
     return (
         "🧠 *ЭТО ТОЛЬКО ПЕРВЫЙ СЛОЙ*\n\n"
@@ -69,42 +78,4 @@ def render_upsell_text():
         "как ваша психика защищает вас от боли\n\n"
         "👑 систему 12 архетипов личности\n"
         "глубокую архетипическую структуру по Карлу Юнгу"
-    )
-
-
-def render_upsell_keyboard():
-    return InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    "Открыть полный код личности",
-                    callback_data="full_profile_info",
-                )
-            ]
-        ]
-    )
-
-
-def render_basic_code_ready_text():
-    return (
-        "✨ *Ваш базовый код личности готов*\n\n"
-        "На основе трёх тестов мы собрали\n"
-        "ваш начальный психологический профиль.\n\n"
-        "Он показывает:\n\n"
-        "• как вы проявляетесь в мире\n"
-        "• какие реакции скрыты\n"
-        "• что влияет на ваши решения"
-    )
-
-
-def render_basic_code_ready_keyboard():
-    return InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    "Получить код личности",
-                    callback_data="show_basic_code",
-                )
-            ]
-        ]
     )
