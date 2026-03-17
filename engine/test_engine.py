@@ -82,11 +82,9 @@ def build_question_text(title: str, questions, index: int) -> str:
     current = index + 1
 
     return (
-        "━━━━━━━━━━━━━━\n\n"
         f"Тест: {title}\n"
         f"Вопрос {current} / {total}\n\n"
         f"{question['text']}\n\n"
-        "━━━━━━━━━━━━━━"
     )
 
 
