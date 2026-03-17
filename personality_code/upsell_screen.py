@@ -1,29 +1,28 @@
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+from personality_code.renderer import render_upsell_text
 
 
-def upsell_text():
-    return (
-        "🧠 *ЭТО ТОЛЬКО ПЕРВЫЙ СЛОЙ*\n\n"
-        "Базовый код личности показывает основу.\n\n"
-        "Но реальный психологический профиль человека\n"
-        "намного глубже.\n\n"
-        "Полная система «Код личности» раскрывает:\n\n"
-        "💔 *ваш сценарий любви*\n"
-        "почему вы выбираете определённых партнёров\n\n"
-        "🧒 *внутреннего ребёнка*\n"
-        "какие детские реакции до сих пор управляют решениями\n\n"
-        "🔥 *страх близости*\n"
-        "что мешает вам строить глубокие отношения\n\n"
-        "🛡 *скрытые защитные механизмы психики*\n"
-        "как ваша психика защищает вас от боли\n\n"
-        "👑 *систему 12 архетипов личности*\n"
-        "глубокую архетипическую структуру по Карлу Юнгу"
+def get_upsell_text():
+    return render_upsell_text()
+
+
+def get_upsell_keyboard():
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "Открыть полный код личности",
+                    callback_data="full_profile_info",
+                )
+            ]
+        ]
     )
 
 
-def upsell_keyboard():
-    return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("Открыть полный код личности", callback_data="premium_stub")]
-        ]
+def get_full_profile_info_text():
+    return (
+        "🔒 *ПОЛНЫЙ ПРОФИЛЬ ЛИЧНОСТИ*\n\n"
+        "Полный профиль пока находится в разработке.\n\n"
+        "Скоро здесь появится расширенная версия системы «Код личности» "
+        "с дополнительными тестами и более глубокой интерпретацией."
     )
