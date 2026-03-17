@@ -152,7 +152,7 @@ def build_result(answer_values):
         f"Поддержка — {percentages['support']}%\n"
         f"Свобода — {percentages['freedom']}%\n\n"
         f"🌗 *ВТОРОЙ СЛОЙ*\n"
-        f"{ARCHETYPE_LABELS[second_type]}\n"
+        f"*{SHADOW_LABELS[second_type].upper()}*\n"
         f"{build_second_interpretation(second_type)}\n\n"
         f"⚠️ *РИСК ПЕРЕКОСА*\n"
         f"{build_shadow_side(main_type)}\n\n"
