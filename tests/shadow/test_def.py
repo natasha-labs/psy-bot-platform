@@ -154,7 +154,7 @@ def build_result(answer_values):
         f"Бунтарь — {percentages['anger']}%\n"
         f"Стратег — {percentages['fear']}%\n\n"
         f"🌘 *ВТОРОЙ СЛОЙ*\n"
-        f"{SHADOW_LABELS[second_type]}\n"
+        f"*{SHADOW_LABELS[second_type].upper()}*\n"
         f"{build_second_interpretation(second_type)}\n\n"
         f"⚠️ *РИСК ПЕРЕКОСА*\n"
         f"{build_shadow_side(main_type)}\n\n"
