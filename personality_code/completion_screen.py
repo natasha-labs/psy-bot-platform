@@ -1,21 +1,19 @@
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+from personality_code.renderer import render_basic_code_ready_text
 
 
-def completion_text():
-    return (
-        "✨ *Ваш базовый код личности готов*\n\n"
-        "На основе трёх тестов мы собрали\n"
-        "ваш начальный психологический профиль.\n\n"
-        "Он показывает:\n\n"
-        "• как вы проявляетесь в мире\n"
-        "• какие реакции скрыты\n"
-        "• что влияет на ваши решения"
-    )
+def get_completion_text():
+    return render_basic_code_ready_text()
 
 
-def completion_keyboard():
+def get_completion_keyboard():
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("Получить код личности", callback_data="show_personality_code")]
+            [
+                InlineKeyboardButton(
+                    "Получить код личности",
+                    callback_data="show_basic_code",
+                )
+            ]
         ]
     )
