@@ -155,7 +155,7 @@ def build_result(answer_values):
         f"Высокий — {percentages['high']}%\n"
         f"Очень высокий — {percentages['very_high']}%\n\n"
         f"🌙 *ВТОРОЙ СЛОЙ*\n"
-        f"{ANXIETY_LABELS[second_type]}\n"
+        f"*{ANXIETY_LABELS[second_type].upper()}*\n"
         f"{build_second_text(second_type)}\n\n"
         f"🌱 *ТОЧКА РОСТА*\n"
         f"{build_growth_text(main_type)}"
