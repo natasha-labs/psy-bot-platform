@@ -1,120 +1,110 @@
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
 
-def render_basic_personality_code(payload: dict) -> str:
+def render_basic_personality_code(payload):
     sections = payload.get("sections", {})
 
-    identity_core = sections.get("identity_core")
-    shadow_layer = sections.get("shadow_layer")
-    stress_modifier = sections.get("stress_modifier")
+    identity = sections.get("identity_core", {})
+    shadow = sections.get("shadow_layer", {})
+    stress = sections.get("stress_modifier", {})
+    reaction_style = sections.get("reaction_style", "")
+    inner_conflict = sections.get("inner_conflict", "")
+    growth_vector = sections.get("growth_vector", "")
+    risk_pattern = sections.get("risk_pattern", "")
 
     lines = [
         "✨ *КОД ЛИЧНОСТИ*",
         "Ваш психологический профиль",
         "",
-    ]
-
-    if identity_core:
-        lines.extend([
-            "*Кто вы в основе*",
-            f"Ваше ядро сейчас проявляется через тип «{identity_core['main_label']}».",
-            identity_core.get("summary", ""),
-            "",
-            "━━━━━━━━━━━━━━",
-            "",
-        ])
-
-    if shadow_layer:
-        lines.extend([
-            "*Что в вас скрыто*",
-            f"В тени сильнее всего звучит тема «{shadow_layer['main_label']}».",
-            shadow_layer.get("summary", ""),
-            "",
-            "━━━━━━━━━━━━━━",
-            "",
-        ])
-
-    if stress_modifier:
-        lines.extend([
-            "*Что сейчас искажает проявление*",
-            f"Текущий фактор напряжения — «{stress_modifier['main_label']}».",
-            stress_modifier.get("summary", ""),
-            "",
-            "━━━━━━━━━━━━━━",
-            "",
-        ])
-
-    lines.extend([
-        "*Как это соединяется в одну картину*",
-        sections.get("reaction_style", ""),
+        "━━━━━━━━━━━━━━",
+        "",
+        "*Кто вы в основе*",
+        f"Ваше ядро сейчас проявляется через тип «{identity.get('main_label', '')}».",
+        identity.get("summary", ""),
         "",
         "━━━━━━━━━━━━━━",
+        "",
+        "*Что в вас скрыто*",
+        f"В тени сильнее всего звучит тема «{shadow.get('main_label', '')}».",
+        shadow.get("summary", ""),
+        "",
+        "━━━━━━━━━━━━━━",
+        "",
+        "*Что сейчас влияет на ваши реакции*",
+        f"Текущий фактор напряжения — «{stress.get('main_label', '')}».",
+        stress.get("summary", ""),
+        "",
+        "━━━━━━━━━━━━━━",
+        "",
+        "*Как это соединяется в одну картину*",
+        reaction_style,
         "",
         "*Точка внутреннего конфликта*",
-        sections.get("inner_conflict", ""),
-        "",
-        "━━━━━━━━━━━━━━",
-        "",
-        "*Ваш внутренний риск*",
-        sections.get("risk_pattern", ""),
-        "",
-        "━━━━━━━━━━━━━━",
+        inner_conflict,
         "",
         "*Вектор роста*",
-        sections.get("growth_vector", ""),
-    ])
+        growth_vector,
+        "",
+        "*Риск перекоса*",
+        risk_pattern,
+    ]
 
     return "\n".join(line for line in lines if line is not None)
 
 
-def render_completion_text() -> str:
+def render_upsell_text():
     return (
-        "✨ *Все тесты завершены*\n\n"
-        "Вы прошли три теста и ответили на все вопросы.\n\n"
-        "Мы собрали данные о вашем психологическом профиле.\n\n"
-        "Теперь можно увидеть:\n\n"
-        "✨ *ВАШ КОД ЛИЧНОСТИ*\n\n"
-        "Он объединяет результаты всех тестов\n"
-        "и показывает:\n\n"
-        "• ваше ядро личности\n"
-        "• скрытую теневую тему\n"
-        "• текущий фактор напряжения"
-    )
-
-
-def render_completion_keyboard():
-    return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("🔍 Получить код личности", callback_data="show_personality_code")],
-        ]
-    )
-
-
-def render_upsell_text() -> str:
-    return (
-        "🔒 *ПОЛНЫЙ ПРОФИЛЬ ЛИЧНОСТИ*\n\n"
-        "Ваш базовый код личности показывает основу психики.\n\n"
-        "Но полный профиль раскрывает гораздо больше.\n\n"
-        "Он включает дополнительные тесты:\n\n"
-        "• Код любви\n"
-        "• Страх близости\n"
-        "• Внутренний конфликт\n"
-        "• Скрытые защиты психики"
+        "🧠 *ЭТО ТОЛЬКО ПЕРВЫЙ СЛОЙ*\n\n"
+        "Базовый код личности показывает основу.\n\n"
+        "Но реальный психологический профиль человека\n"
+        "намного глубже.\n\n"
+        "Полная система «Код личности» раскрывает:\n\n"
+        "💔 ваш сценарий любви\n"
+        "почему вы выбираете определённых партнёров\n\n"
+        "🧒 внутреннего ребёнка\n"
+        "какие детские реакции до сих пор управляют решениями\n\n"
+        "🔥 страх близости\n"
+        "что мешает вам строить глубокие отношения\n\n"
+        "🛡 скрытые защитные механизмы психики\n"
+        "как ваша психика защищает вас от боли\n\n"
+        "👑 систему 12 архетипов личности\n"
+        "глубокую архетипическую структуру по Карлу Юнгу"
     )
 
 
 def render_upsell_keyboard():
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("🔓 Получить полный профиль личности", callback_data="full_profile_info")],
+            [
+                InlineKeyboardButton(
+                    "Открыть полный код личности",
+                    callback_data="full_profile_info",
+                )
+            ]
         ]
     )
 
 
-def render_full_profile_stub_text():
+def render_basic_code_ready_text():
     return (
-        "🔒 *ПОЛНЫЙ ПРОФИЛЬ ЛИЧНОСТИ*\n\n"
-        "Полный профиль пока находится в разработке.\n\n"
-        "Скоро здесь появится расширенная версия системы «Код личности» "
-        "с дополнительными тестами и более глубокой интерпретацией."
+        "✨ *Ваш базовый код личности готов*\n\n"
+        "На основе трёх тестов мы собрали\n"
+        "ваш начальный психологический профиль.\n\n"
+        "Он показывает:\n\n"
+        "• как вы проявляетесь в мире\n"
+        "• какие реакции скрыты\n"
+        "• что влияет на ваши решения"
+    )
+
+
+def render_basic_code_ready_keyboard():
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "Получить код личности",
+                    callback_data="show_basic_code",
+                )
+            ]
+        ]
     )
