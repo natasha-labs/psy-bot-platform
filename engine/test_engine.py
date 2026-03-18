@@ -125,7 +125,6 @@ async def begin_test(update, context, test_key: str, test_def):
     context.user_data["index"] = 0
     context.user_data["answers"] = []
     context.user_data["questions"] = select_random_questions(test_def["question_bank"], 15)
-    context.user_data["test_message_id"] = None
 
     await send_question(update, context, test_def, 0)
 
@@ -143,13 +142,12 @@ async def send_question(update, context, test_def, index: int):
         question_text=question_text,
     )
 
-    msg = await context.bot.send_message(
+    await context.bot.send_message(
         chat_id=chat_id,
         text=text,
         parse_mode="Markdown",
         reply_markup=get_question_keyboard(test_def["scale"]),
     )
-    context.user_data["test_message_id"] = msg.message_id
 
 
 async def send_post_result_flow(update, context, main_menu_markup, test_def, result_text, profile_payload):
@@ -169,7 +167,7 @@ async def send_post_result_flow(update, context, main_menu_markup, test_def, res
 
     results = get_user_results(user_id)
 
-    # 1. Основной CTA — деньги
+    # 1. Главная кнопка (деньги)
     await context.bot.send_message(
         chat_id=chat_id,
         text=result_text,
@@ -177,20 +175,16 @@ async def send_post_result_flow(update, context, main_menu_markup, test_def, res
         reply_markup=get_result_keyboard(test_key, test_def["result_button_text"]),
     )
 
-    # 2. Вторичный CTA — продолжить воронку
+    # 2. Вторичный CTA (ПРАВИЛЬНО — В ОДНОМ СООБЩЕНИИ)
     remaining = get_remaining_tests(results)
     if remaining:
         await context.bot.send_message(
             chat_id=chat_id,
             text="Продолжить исследование и собрать полный код личности",
-        )
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=" ",
             reply_markup=get_continue_keyboard(),
         )
 
-    # 3. После 3 тестов — код личности
+    # 3. Код личности
     if enough_for_basic_personality_code(results):
         payload = build_basic_personality_code(results)
         code_text = render_basic_personality_code(payload)
@@ -234,11 +228,6 @@ async def handle_callback(update, context, main_menu_markup, tests):
         test_key = data.split(":", 1)[1]
 
         if test_key not in tests:
-            await context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text="Этот тест сейчас недоступен.",
-                reply_markup=main_menu_markup,
-            )
             return
 
         try:
@@ -274,16 +263,11 @@ async def handle_callback(update, context, main_menu_markup, tests):
         )
         return
 
-    current_test = context.user_data.get("test")
-    if not current_test or current_test not in tests:
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="Начни исследование заново.",
-            reply_markup=main_menu_markup,
-        )
+    if not data.startswith("ans:"):
         return
 
-    if not data.startswith("ans:"):
+    current_test = context.user_data.get("test")
+    if not current_test or current_test not in tests:
         return
 
     test_def = tests[current_test]
@@ -301,14 +285,9 @@ async def handle_callback(update, context, main_menu_markup, tests):
 
     question_text = test_def["get_question_text"](current_question)
 
-    selected_view = (
-        f"{question_text}\n"
-        f"✅ {answer_text}"
-    )
-
     try:
         await query.edit_message_text(
-            text=selected_view,
+            text=f"{question_text}\n\n✅ {answer_text}",
             parse_mode="Markdown",
         )
     except Exception:
@@ -317,12 +296,9 @@ async def handle_callback(update, context, main_menu_markup, tests):
     context.user_data["answers"].append((current_question, answer_value))
     context.user_data["index"] += 1
 
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.3)
 
-    new_index = context.user_data["index"]
-
-    if new_index >= len(questions):
-        test_key = context.user_data["test"]
+    if context.user_data["index"] >= len(questions):
         answer_pairs = context.user_data["answers"]
 
         result_text = test_def["build_result"](answer_pairs)
@@ -340,4 +316,4 @@ async def handle_callback(update, context, main_menu_markup, tests):
         )
         return
 
-    await send_question(update, context, test_def, new_index)
+    await send_question(update, context, test_def, context.user_data["index"])
