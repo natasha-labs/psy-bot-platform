@@ -21,141 +21,74 @@ def calculate_profile(answer_pairs):
         if key not in counts:
             counts[key] = 0
 
-    total = sum(counts.values()) or 1
-
-    percentages = {
-        key: round(counts[key] / total * 100)
-        for key in ARCHETYPE_LABELS
-    }
-
-    sorted_profiles = sorted(
-        percentages.items(),
-        key=lambda item: item[1],
-        reverse=True,
-    )
-
-    main_type = sorted_profiles[0][0]
-    second_type = sorted_profiles[1][0]
-    return percentages, main_type, second_type
-
-
-def build_summary(main_type):
-    if main_type == "leader":
-        return "Сильнее всего в вас проявляется стремление вести, влиять и задавать направление."
-    if main_type == "observer":
-        return "Сильнее всего в вас проявляется глубина, наблюдательность и внутренний анализ."
-    if main_type == "support":
-        return "Сильнее всего в вас проявляется тепло, контакт и способность быть опорой."
-    return "Сильнее всего в вас проявляется независимость, потребность в свободе и верность себе."
-
-
-def build_type_description(main_type):
-    if main_type == "leader":
-        return (
-            "Вы естественно тянетесь к позиции, где можно брать ответственность, "
-            "влиять на ситуацию и двигать процесс вперёд.\n\n"
-            "Вам легче включаться, когда есть цель, направление и возможность принимать решения."
-        )
-    if main_type == "observer":
-        return (
-            "Вы чаще проявляетесь через наблюдение, понимание и внутреннюю глубину.\n\n"
-            "Вам важно сначала почувствовать контекст, увидеть смысл и только потом действовать."
-        )
-    if main_type == "support":
-        return (
-            "Вы чаще проявляетесь через контакт, тепло и эмоциональную опору.\n\n"
-            "Рядом с вами людям легче раскрываться, а ваша сила — в способности удерживать связь и поддержку."
-        )
-    return (
-        "Вы чаще проявляетесь через самостоятельность, внутреннюю свободу и независимость.\n\n"
-        "Для вас особенно важно не растворяться в чужих ожиданиях и сохранять связь с собой."
-    )
-
-
-def build_second_interpretation(second_type):
-    if second_type == "leader":
-        return "Во втором слое у вас есть лидерская часть: она включается там, где нужно брать ответственность и собирать ситуацию."
-    if second_type == "observer":
-        return "Во втором слое у вас есть наблюдающая часть: она помогает видеть глубже и не действовать поверхностно."
-    if second_type == "support":
-        return "Во втором слое у вас есть поддерживающая часть: она связана с теплом, эмпатией и заботой."
-    return "Во втором слое у вас есть свободная часть: она помогает сохранять независимость и не терять связь с собой."
-
-
-def build_shadow_side(main_type):
-    if main_type == "leader":
-        return "В перекосе этот архетип может уходить в чрезмерный контроль, жёсткость и невозможность расслабиться."
-    if main_type == "observer":
-        return "В перекосе этот архетип может застревать в анализе и слишком долго не переходить к действию."
-    if main_type == "support":
-        return "В перекосе этот архетип может слишком сильно подстраиваться под других и забывать о себе."
-    return "В перекосе этот архетип может уходить в дистанцию и защищать свободу даже там, где нужна близость."
-
-
-def build_growth_point(main_type):
-    if main_type == "leader":
-        return "Ваша точка роста — не только вести, но и иногда разрешать себе не знать ответ сразу."
-    if main_type == "observer":
-        return "Ваша точка роста — не застревать в наблюдении и иногда идти в действие раньше."
-    if main_type == "support":
-        return "Ваша точка роста — не забывать о себе, пока вы поддерживаете других."
-    return "Ваша точка роста — не путать свободу с изоляцией и оставлять место для близости."
+    main_type = max(counts, key=counts.get)
+    return main_type
 
 
 def build_result(answer_pairs):
-    percentages, main_type, second_type = calculate_profile(answer_pairs)
+    main_type = calculate_profile(answer_pairs)
+    main_label = ARCHETYPE_LABELS[main_type]
+
+    if main_type == "leader":
+        text = (
+            "Вы чаще проявляетесь через влияние, инициативу и движение вперёд.\n\n"
+            "Обычно вам проще включаться там, где нужно брать ответственность и вести."
+        )
+    elif main_type == "observer":
+        text = (
+            "Вы чаще проявляетесь через наблюдение, анализ и внутреннюю глубину.\n\n"
+            "Обычно вам важно сначала понять суть, а уже потом действовать."
+        )
+    elif main_type == "support":
+        text = (
+            "Вы чаще проявляетесь через поддержку, тепло и контакт с людьми.\n\n"
+            "Обычно рядом с вами другим становится спокойнее и понятнее."
+        )
+    else:
+        text = (
+            "Вы чаще проявляетесь через самостоятельность, свободу и внутреннюю дистанцию.\n\n"
+            "Обычно вам важно сохранять пространство для себя и своих решений."
+        )
 
     return (
-        f"🧭 *АРХЕТИП ЛИЧНОСТИ*\n\n"
-        f"*{ARCHETYPE_LABELS[main_type].upper()}*\n\n"
-        f"{build_summary(main_type)}\n\n"
-        f"{build_type_description(main_type)}\n\n"
-        f"━━━━━━━━━━━━━━\n\n"
-        f"*ПРОФИЛЬ АРХЕТИПА*\n"
-        f"Лидер — {percentages['leader']}%\n"
-        f"Наблюдатель — {percentages['observer']}%\n"
-        f"Поддержка — {percentages['support']}%\n"
-        f"Свобода — {percentages['freedom']}%\n\n"
-        f"🌗 *ВТОРОЙ СЛОЙ*\n"
-        f"*{ARCHETYPE_LABELS[second_type].upper()}*\n"
-        f"{build_second_interpretation(second_type)}\n\n"
-        f"⚠️ *РИСК ПЕРЕКОСА*\n"
-        f"{build_shadow_side(main_type)}\n\n"
-        f"🌱 *ТОЧКА РОСТА*\n"
-        f"{build_growth_point(main_type)}"
+        f"🧭 *Ваш архетип личности — {main_label.upper()}*\n\n"
+        f"{text}"
     )
 
 
 def build_profile_payload(answer_pairs):
-    percentages, main_type, second_type = calculate_profile(answer_pairs)
+    main_type = calculate_profile(answer_pairs)
+    main_label = ARCHETYPE_LABELS[main_type]
 
     return {
         "test_key": "archetype",
         "title": "Архетип личности",
         "main_type": main_type,
-        "main_label": ARCHETYPE_LABELS[main_type],
-        "second_type": second_type,
-        "second_label": ARCHETYPE_LABELS[second_type],
-        "percentages": percentages,
-        "summary": build_summary(main_type),
-        "growth_point": build_growth_point(main_type),
-        "risk_zone": build_shadow_side(main_type),
-        "raw_text": build_result(answer_pairs),
+        "main_label": main_label,
     }
+
+
+def build_offer_text(profile_payload):
+    return (
+        "Вы уже увидели свой архетип.\n\n"
+        "Но это только верхний слой.\n\n"
+        "Глубже проявляются:\n"
+        "— скрытые мотивации\n"
+        "— повторяющиеся роли\n"
+        "— сценарии, по которым вы живёте\n\n"
+        "Мы можем разобрать это персонально."
+    )
 
 
 TEST_DEF = {
     "key": "archetype",
     "title": "Архетип личности",
-    "intro_text": (
-        "Архетип личности\n\n"
-        "У каждого человека есть естественный стиль поведения — "
-        "то, как он взаимодействует с людьми, решениями и жизнью.\n\n"
-        "Этот тест поможет увидеть, какой архетип сейчас сильнее всего проявляется в вас."
-    ),
+    "intro_text": "",
     "question_bank": questions,
     "scale": SCALE,
     "get_question_text": lambda question: question["text"],
     "build_result": build_result,
     "build_profile_payload": build_profile_payload,
+    "build_offer_text": build_offer_text,
+    "result_button_text": "Разобрать мой архетип",
 }
