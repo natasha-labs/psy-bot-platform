@@ -19,44 +19,43 @@ TEST_ORDER = ["anxiety", "archetype", "shadow"]
 
 def get_entry_keyboard():
     return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("Начать исследование", callback_data="choose_test_menu")]
-        ]
+        [[InlineKeyboardButton("Начать исследование", callback_data="choose_test_menu")]]
     )
 
 
-def get_test_selection_keyboard():
-    return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("Тревога", callback_data="start:anxiety")],
-            [InlineKeyboardButton("Архетип личности", callback_data="start:archetype")],
-            [InlineKeyboardButton("Теневой профиль", callback_data="start:shadow")],
-        ]
-    )
+def get_test_selection_keyboard(available_tests=None):
+    buttons = []
+
+    mapping = {
+        "anxiety": "Тревога",
+        "archetype": "Архетип личности",
+        "shadow": "Теневой профиль",
+    }
+
+    for key in TEST_ORDER:
+        if available_tests and key not in available_tests:
+            continue
+
+        buttons.append([InlineKeyboardButton(mapping[key], callback_data=f"start:{key}")])
+
+    return InlineKeyboardMarkup(buttons)
 
 
 def get_result_keyboard(test_key: str, button_text: str):
     return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton(button_text, callback_data=f"offer:{test_key}")]
-        ]
+        [[InlineKeyboardButton(button_text, callback_data=f"offer:{test_key}")]]
+    )
+
+
+def get_continue_keyboard():
+    return InlineKeyboardMarkup(
+        [[InlineKeyboardButton("Пройти следующий тест", callback_data="next_test")]]
     )
 
 
 def get_question_keyboard(scale):
-    rows = []
-    for text, value in scale:
-        rows.append([InlineKeyboardButton(text, callback_data=f"ans:{value}")])
-    return InlineKeyboardMarkup(rows)
-
-
-def build_question_text(title: str, questions, index: int, question_text: str) -> str:
-    total = len(questions)
-    current = index + 1
-    return (
-        f"{question_text}\n\n"
-        f"*{title}*\n"
-        f"Вопрос {current} / {total}"
+    return InlineKeyboardMarkup(
+        [[InlineKeyboardButton(text, callback_data=f"ans:{value}")] for text, value in scale]
     )
 
 
@@ -66,13 +65,9 @@ def select_random_questions(question_bank, count=15):
     return selected
 
 
-def get_next_test_key(results: dict):
+def get_remaining_tests(results):
     completed = set(results.keys())
-
-    for key in TEST_ORDER:
-        if key not in completed:
-            return key
-    return None
+    return [key for key in TEST_ORDER if key not in completed]
 
 
 async def send_entry_screen(update, context, main_menu_markup):
@@ -97,51 +92,52 @@ async def send_entry_screen(update, context, main_menu_markup):
     )
 
 
-async def send_test_selection_screen(update, context, main_menu_markup):
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text="Выбери, с чего начать:",
-        reply_markup=get_test_selection_keyboard(),
-    )
-
-
-async def send_question(update, context, test_def, index: int):
-    chat_id = update.effective_chat.id
-    questions = context.user_data["questions"]
-    question = questions[index]
-    question_text = test_def["get_question_text"](question)
-
-    text = build_question_text(
-        test_def["title"],
-        questions,
-        index,
-        question_text,
-    )
-
-    msg = await context.bot.send_message(
-        chat_id=chat_id,
-        text=text,
-        reply_markup=get_question_keyboard(test_def["scale"]),
-        parse_mode="Markdown",
-    )
-
-    context.user_data["test_message_id"] = msg.message_id
-
-
 async def begin_test(update, context, test_key: str, test_def):
     context.user_data["test"] = test_key
     context.user_data["index"] = 0
     context.user_data["answers"] = []
     context.user_data["questions"] = select_random_questions(test_def["question_bank"], 15)
-    context.user_data["test_message_id"] = None
 
     await send_question(update, context, test_def, 0)
+
+
+async def send_question(update, context, test_def, index):
+    q = context.user_data["questions"][index]
+
+    text = (
+        f"{q['text']}\n\n"
+        f"*{test_def['title']}*\n"
+        f"Вопрос {index+1} / {len(context.user_data['questions'])}"
+    )
+
+    msg = await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=text,
+        parse_mode="Markdown",
+        reply_markup=get_question_keyboard(test_def["scale"]),
+    )
+
+    context.user_data["msg_id"] = msg.message_id
 
 
 async def send_test_result(update, context, main_menu_markup, test_def, result_text, profile_payload):
     chat_id = update.effective_chat.id
     test_key = test_def["key"]
 
+    user = update.effective_user
+    user_id = user.id if user else "unknown"
+
+    save_user_result(
+        user_id=user_id,
+        test_key=test_key,
+        title=test_def["title"],
+        result_text=result_text,
+        profile_payload=profile_payload,
+    )
+
+    results = get_user_results(user_id)
+
+    # 1. результат
     await context.bot.send_message(
         chat_id=chat_id,
         text=result_text,
@@ -149,17 +145,28 @@ async def send_test_result(update, context, main_menu_markup, test_def, result_t
         reply_markup=get_result_keyboard(test_key, test_def["result_button_text"]),
     )
 
-    user = update.effective_user
-    user_id = user.id if user else "unknown"
-    results = get_user_results(user_id)
+    # 2. продолжение воронки
+    remaining = get_remaining_tests(results)
 
-    if enough_for_basic_personality_code(results):
-        payload = build_basic_personality_code(results)
-        code_text = render_basic_personality_code(payload)
+    if remaining:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="Продолжить исследование и собрать полный код личности",
+        )
 
         await context.bot.send_message(
             chat_id=chat_id,
-            text=code_text,
+            text="",
+            reply_markup=get_continue_keyboard(),
+        )
+
+    # 3. код личности
+    if enough_for_basic_personality_code(results):
+        payload = build_basic_personality_code(results)
+
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=render_basic_personality_code(payload),
             parse_mode="Markdown",
             reply_markup=get_full_profile_keyboard(),
         )
@@ -170,60 +177,43 @@ async def handle_callback(update, context, main_menu_markup, tests):
     await query.answer()
     data = query.data
 
+    user = update.effective_user
+    user_id = user.id if user else "unknown"
+
+    results = get_user_results(user_id)
+
     if data == "choose_test_menu":
-        try:
-            await query.edit_message_reply_markup(reply_markup=None)
-        except Exception:
-            pass
+        remaining = get_remaining_tests(results)
 
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text="Выбери, с чего начать:",
-            reply_markup=get_test_selection_keyboard(),
+            reply_markup=get_test_selection_keyboard(remaining),
+        )
+        return
+
+    if data == "next_test":
+        remaining = get_remaining_tests(results)
+
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Выбери следующий тест:",
+            reply_markup=get_test_selection_keyboard(remaining),
         )
         return
 
     if data.startswith("start:"):
-        test_key = data.split(":", 1)[1]
-
-        if test_key not in tests:
-            await context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text="Этот тест сейчас недоступен.",
-                reply_markup=main_menu_markup,
-            )
-            return
-
-        try:
-            await query.edit_message_reply_markup(reply_markup=None)
-        except Exception:
-            pass
-
+        test_key = data.split(":")[1]
         await begin_test(update, context, test_key, tests[test_key])
         return
 
     if data.startswith("offer:"):
-        test_key = data.split(":", 1)[1]
-        if test_key not in tests:
-            return
-
-        user = update.effective_user
-        user_id = user.id if user else "unknown"
-        results = get_user_results(user_id)
-        item = results.get(test_key)
-
-        if not item:
-            return
-
-        profile_payload = item.get("profile_payload", {})
-        offer_text_builder = tests[test_key].get("build_offer_text")
-
-        if not offer_text_builder:
-            return
+        test_key = data.split(":")[1]
+        test_def = tests[test_key]
 
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text=offer_text_builder(profile_payload),
+            text=test_def["build_offer_text"]({}),
             parse_mode="Markdown",
             reply_markup=get_deep_dive_keyboard(),
         )
@@ -237,76 +227,28 @@ async def handle_callback(update, context, main_menu_markup, tests):
         )
         return
 
-    current_test = context.user_data.get("test")
-    if not current_test or current_test not in tests:
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="Начни исследование заново.",
-            reply_markup=main_menu_markup,
-        )
-        return
+    if data.startswith("ans:"):
+        val = int(data.split(":")[1])
+        idx = context.user_data["index"]
+        q = context.user_data["questions"][idx]
 
-    if not data.startswith("ans:"):
-        return
+        context.user_data["answers"].append((q, val))
+        context.user_data["index"] += 1
 
-    test_def = tests[current_test]
-    index = context.user_data.get("index", 0)
-    questions = context.user_data["questions"]
-    current_question = questions[index]
+        await asyncio.sleep(0.4)
 
-    answer_value = int(data.split(":")[1])
+        if context.user_data["index"] >= len(context.user_data["questions"]):
+            test_key = context.user_data["test"]
+            test_def = tests[test_key]
 
-    answer_text = None
-    for text, value in test_def["scale"]:
-        if value == answer_value:
-            answer_text = text
-            break
+            answers = context.user_data["answers"]
 
-    question_text = test_def["get_question_text"](current_question)
+            result_text = test_def["build_result"](answers)
+            payload = test_def["build_profile_payload"](answers)
 
-    selected_view = (
-        f"{question_text}\n"
-        f"✅ {answer_text}"
-    )
+            context.user_data.clear()
 
-    await query.edit_message_text(
-        text=selected_view,
-        parse_mode="Markdown",
-    )
+            await send_test_result(update, context, main_menu_markup, test_def, result_text, payload)
+            return
 
-    context.user_data["answers"].append((current_question, answer_value))
-    context.user_data["index"] = index + 1
-
-    await asyncio.sleep(0.4)
-
-    new_index = context.user_data["index"]
-
-    if new_index >= len(questions):
-        answer_pairs = context.user_data["answers"]
-
-        result_text = test_def["build_result"](answer_pairs)
-        profile_payload = test_def["build_profile_payload"](answer_pairs)
-
-        user = update.effective_user
-        if user:
-            save_user_result(
-                user_id=user.id,
-                test_key=test_def["key"],
-                title=test_def["title"],
-                result_text=result_text,
-                profile_payload=profile_payload,
-            )
-
-        context.user_data.clear()
-
-        await send_test_result(
-            update,
-            context,
-            main_menu_markup,
-            test_def,
-            result_text,
-            profile_payload,
-        )
-        return
-
-    await send_question(update, context, test_def, new_index)
+        await send_question(update, context, tests[context.user_data["test"]], context.user_data["index"])
