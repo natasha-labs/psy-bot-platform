@@ -9,18 +9,13 @@ from telegram.ext import (
     filters,
 )
 
-from engine.test_engine import start_test, handle_callback
+from engine.test_engine import (
+    send_entry_screen,
+    send_test_selection_screen,
+    handle_callback,
+)
 from tests.registry import TESTS
 from storage.results_store import get_user_results, delete_user_results
-from personality_code.aggregator import (
-    enough_for_basic_personality_code,
-    build_basic_personality_code,
-)
-from personality_code.renderer import render_basic_personality_code
-from personality_code.upsell_screen import (
-    get_upsell_text,
-    get_upsell_keyboard,
-)
 
 TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = 5750354905
@@ -29,40 +24,19 @@ if not TOKEN:
     raise RuntimeError("BOT_TOKEN is not set")
 
 
-ONBOARDING_MENU = [
+MAIN_MENU = [
     ["Начать исследование"],
     ["Мои результаты"],
     ["О тесте"],
 ]
-
-FULL_MENU = [
-    ["Архетип личности"],
-    ["Код Тени"],
-    ["Внутреннее напряжение"],
-    ["Мои результаты"],
-    ["Получить Код личности"],
-    ["О тесте"],
-]
-
-BUTTON_TO_TEST_KEY = {
-    "Архетип личности": "archetype",
-    "Код Тени": "shadow",
-    "Внутреннее напряжение": "anxiety",
-}
 
 
 def is_admin(user_id) -> bool:
     return str(user_id) == str(ADMIN_ID)
 
 
-def has_full_access(results: dict) -> bool:
-    required = {"archetype", "shadow", "anxiety"}
-    return required.issubset(set(results.keys()))
-
-
-def get_main_menu_by_results(results: dict, user_id):
-    menu = FULL_MENU if has_full_access(results) else ONBOARDING_MENU
-    menu = [row[:] for row in menu]
+def get_main_menu(user_id):
+    menu = [row[:] for row in MAIN_MENU]
 
     if is_admin(user_id):
         menu.append(["Сбросить мои тесты"])
@@ -74,11 +48,11 @@ def build_results_text(results: dict) -> str:
     if not results:
         return (
             "У вас пока нет сохранённых результатов.\n\n"
-            "Начните исследование, и результаты появятся здесь."
+            "Начните исследование."
         )
 
+    ordered_keys = ["anxiety", "archetype", "shadow"]
     lines = ["*Мои результаты*\n"]
-    ordered_keys = ["archetype", "shadow", "anxiety"]
 
     for key in ordered_keys:
         if key not in results:
@@ -92,23 +66,14 @@ def build_results_text(results: dict) -> str:
     return "\n".join(lines).strip()
 
 
-def build_research_intro_text():
+def build_about_text() -> str:
     return (
-        "✨ *Как работает исследование*\n\n"
-        "Вы пройдёте три коротких теста.\n"
-        "Каждый из них раскрывает отдельный слой вашей личности.\n\n"
-        "🧭 *Архетип личности*\n"
-        "покажет ваш основной способ взаимодействия с людьми и миром.\n\n"
-        "🌑 *Теневая сторона*\n"
-        "поможет увидеть часть личности, которую обычно трудно заметить.\n\n"
-        "⚡ *Уровень внутреннего напряжения*\n"
-        "покажет, как стресс и внутренние реакции влияют на ваши решения.\n\n"
-        "После каждого теста вы получите короткий результат.\n\n"
-        "Когда все три теста будут завершены, система соберёт их в:\n\n"
-        "🧬 *КОД ЛИЧНОСТИ*\n\n"
-        "Это ваш психологический профиль, который показывает,\n"
-        "как соединяются разные части вашей личности.\n\n"
-        "*3 теста • примерно 5 минут*"
+        "Это система коротких психологических тестов.\n\n"
+        "Внутри доступны:\n"
+        "• Тревога\n"
+        "• Архетип личности\n"
+        "• Теневой профиль\n\n"
+        "Тесты дают быстрый инсайт и помогают увидеть ваш внутренний код."
     )
 
 
@@ -117,19 +82,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user = update.effective_user
     user_id = user.id if user else "unknown"
-    results = get_user_results(user_id)
 
-    await update.message.reply_text(
-        "Добро пожаловать в систему «Код личности».",
-        reply_markup=get_main_menu_by_results(results, user_id),
+    await send_entry_screen(
+        update=update,
+        context=context,
+        main_menu_markup=get_main_menu(user_id),
     )
-
-    if not has_full_access(results):
-        await update.message.reply_text(
-            build_research_intro_text(),
-            parse_mode="Markdown",
-            reply_markup=get_main_menu_by_results(results, user_id),
-        )
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -138,7 +96,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id if user else "unknown"
     results = get_user_results(user_id)
-    main_menu_markup = get_main_menu_by_results(results, user_id)
+    main_menu_markup = get_main_menu(user_id)
 
     if text == "Сбросить мои тесты":
         if not is_admin(user_id):
@@ -151,13 +109,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         delete_user_results(user_id)
         context.user_data.clear()
 
-        fresh_results = get_user_results(user_id)
-        fresh_menu = get_main_menu_by_results(fresh_results, user_id)
-
         await update.message.reply_text(
-            "Ваши результаты удалены. Теперь бот снова считает вас новым пользователем.",
-            reply_markup=fresh_menu,
+            "Ваши результаты удалены.",
+            reply_markup=main_menu_markup,
         )
+        return
+
+    if text == "Начать исследование":
+        context.user_data.clear()
+        await send_test_selection_screen(update, context, main_menu_markup)
         return
 
     if text == "Мои результаты":
@@ -171,76 +131,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == "О тесте":
         context.user_data.clear()
-
-        if has_full_access(results):
-            about_text = (
-                "Это бот психологических тестов.\n\n"
-                "Внутри доступны:\n"
-                "• Архетип личности\n"
-                "• Код Тени\n"
-                "• Внутреннее напряжение\n\n"
-                "После прохождения трёх тестов можно получить «Код личности».\n\n"
-                "Все результаты сохраняются в разделе «Мои результаты»."
-            )
-        else:
-            about_text = (
-                "Это бот психологических тестов.\n\n"
-                "Вы проходите три теста по цепочке:\n"
-                "• Архетип личности\n"
-                "• Код Тени\n"
-                "• Внутреннее напряжение\n\n"
-                "После этого бот собирает результаты в «Код личности».\n\n"
-                "Все результаты сохраняются в разделе «Мои результаты»."
-            )
-
         await update.message.reply_text(
-            about_text,
+            build_about_text(),
             reply_markup=main_menu_markup,
         )
-        return
-
-    if text == "Начать исследование":
-        context.user_data.clear()
-        await start_test(update, context, "archetype", TESTS["archetype"])
-        return
-
-    if text == "Получить Код личности":
-        context.user_data.clear()
-
-        if not enough_for_basic_personality_code(results):
-            await update.message.reply_text(
-                "Сначала завершите три базовых теста.",
-                reply_markup=main_menu_markup,
-            )
-            return
-
-        payload = build_basic_personality_code(results)
-        rendered = render_basic_personality_code(payload)
-
-        await update.message.reply_text(
-            rendered,
-            reply_markup=main_menu_markup,
-            parse_mode="Markdown",
-        )
-
-        await update.message.reply_text(
-            get_upsell_text(),
-            reply_markup=get_upsell_keyboard(),
-            parse_mode="Markdown",
-        )
-        return
-
-    if text in BUTTON_TO_TEST_KEY:
-        test_key = BUTTON_TO_TEST_KEY[text]
-        context.user_data.clear()
-
-        if has_full_access(results):
-            await start_test(update, context, test_key, TESTS[test_key])
-        else:
-            await update.message.reply_text(
-                "Сначала начните исследование. Порядок тестов: Архетип личности → Код Тени → Внутреннее напряжение.",
-                reply_markup=main_menu_markup,
-            )
         return
 
     await update.message.reply_text(
@@ -252,8 +146,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_all_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id if user else "unknown"
-    results = get_user_results(user_id)
-    main_menu_markup = get_main_menu_by_results(results, user_id)
+    main_menu_markup = get_main_menu(user_id)
 
     await handle_callback(update, context, main_menu_markup, TESTS)
 
