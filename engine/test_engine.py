@@ -180,12 +180,13 @@ async def send_post_result_flow(update, context, main_menu_markup, test_def, res
 
     # 2. Вторичный CTA — продолжение бесплатной воронки
     remaining = get_remaining_tests(results)
-    if remaining:
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text="Продолжить исследование и собрать полный код личности",
-            reply_markup=get_continue_keyboard(),
-        )
+
+    if len(results) < len(TEST_ORDER):
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text="Продолжить исследование и собрать полный код личности",
+        reply_markup=get_continue_keyboard(),
+    )
 
     # 3. Код личности после 3 тестов
     if enough_for_basic_personality_code(results):
