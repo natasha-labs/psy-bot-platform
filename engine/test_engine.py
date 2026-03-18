@@ -125,6 +125,7 @@ async def begin_test(update, context, test_key: str, test_def):
     context.user_data["index"] = 0
     context.user_data["answers"] = []
     context.user_data["questions"] = select_random_questions(test_def["question_bank"], 15)
+    context.user_data["test_message_id"] = None
 
     await send_question(update, context, test_def, 0)
 
@@ -142,12 +143,14 @@ async def send_question(update, context, test_def, index: int):
         question_text=question_text,
     )
 
-    await context.bot.send_message(
+    msg = await context.bot.send_message(
         chat_id=chat_id,
         text=text,
         parse_mode="Markdown",
         reply_markup=get_question_keyboard(test_def["scale"]),
     )
+
+    context.user_data["test_message_id"] = msg.message_id
 
 
 async def send_post_result_flow(update, context, main_menu_markup, test_def, result_text, profile_payload):
@@ -167,7 +170,7 @@ async def send_post_result_flow(update, context, main_menu_markup, test_def, res
 
     results = get_user_results(user_id)
 
-    # 1. Главная кнопка (деньги)
+    # 1. Основной CTA — деньги
     await context.bot.send_message(
         chat_id=chat_id,
         text=result_text,
@@ -175,7 +178,7 @@ async def send_post_result_flow(update, context, main_menu_markup, test_def, res
         reply_markup=get_result_keyboard(test_key, test_def["result_button_text"]),
     )
 
-    # 2. Вторичный CTA (ПРАВИЛЬНО — В ОДНОМ СООБЩЕНИИ)
+    # 2. Вторичный CTA — продолжение бесплатной воронки
     remaining = get_remaining_tests(results)
     if remaining:
         await context.bot.send_message(
@@ -184,7 +187,7 @@ async def send_post_result_flow(update, context, main_menu_markup, test_def, res
             reply_markup=get_continue_keyboard(),
         )
 
-    # 3. Код личности
+    # 3. Код личности после 3 тестов
     if enough_for_basic_personality_code(results):
         payload = build_basic_personality_code(results)
         code_text = render_basic_personality_code(payload)
@@ -287,7 +290,7 @@ async def handle_callback(update, context, main_menu_markup, tests):
 
     try:
         await query.edit_message_text(
-            text=f"{question_text}\n\n✅ {answer_text}",
+            text=f"{question_text}\n✅ {answer_text}",
             parse_mode="Markdown",
         )
     except Exception:
