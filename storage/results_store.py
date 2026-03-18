@@ -28,88 +28,26 @@ def save_results(data):
     )
 
 
-def ensure_user_record(user_id):
+def save_user_result(user_id, test_key, title, result_text, profile_payload=None):
     data = load_results()
     user_id = str(user_id)
 
     if user_id not in data:
-        data[user_id] = {
-            "access_level": "free",
-            "tests": {},
-            "personality_code_version": None,
-            "last_personality_code_payload": None,
-        }
-        save_results(data)
-    else:
-        changed = False
+        data[user_id] = {}
 
-        if "access_level" not in data[user_id]:
-            data[user_id]["access_level"] = "free"
-            changed = True
-
-        if "tests" not in data[user_id]:
-            data[user_id]["tests"] = {}
-            changed = True
-
-        if "personality_code_version" not in data[user_id]:
-            data[user_id]["personality_code_version"] = None
-            changed = True
-
-        if "last_personality_code_payload" not in data[user_id]:
-            data[user_id]["last_personality_code_payload"] = None
-            changed = True
-
-        if changed:
-            save_results(data)
-
-    return data
-
-
-def save_user_result(user_id, test_key, title, result_text, profile_payload=None):
-    data = ensure_user_record(user_id)
-    user_id = str(user_id)
-
-    data[user_id]["tests"][test_key] = {
+    data[user_id][test_key] = {
         "title": title,
         "result_text": result_text,
+        "profile_payload": profile_payload or {},
         "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "profile_payload": profile_payload,
     }
 
     save_results(data)
 
 
 def get_user_results(user_id):
-    data = ensure_user_record(user_id)
-    return data.get(str(user_id), {}).get("tests", {})
-
-
-def get_user_access_level(user_id):
-    data = ensure_user_record(user_id)
-    return data.get(str(user_id), {}).get("access_level", "free")
-
-
-def set_user_access_level(user_id, access_level):
-    data = ensure_user_record(user_id)
-    user_id = str(user_id)
-    data[user_id]["access_level"] = access_level
-    save_results(data)
-
-
-def save_personality_code_payload(user_id, payload, version="basic_v1"):
-    data = ensure_user_record(user_id)
-    user_id = str(user_id)
-
-    data[user_id]["personality_code_version"] = version
-    data[user_id]["last_personality_code_payload"] = payload
-
-    save_results(data)
-
-
-def get_personality_code_payload(user_id):
-    data = ensure_user_record(user_id)
-    user_id = str(user_id)
-    return data.get(user_id, {}).get("last_personality_code_payload")
+    data = load_results()
+    return data.get(str(user_id), {})
 
 
 def delete_user_results(user_id):
