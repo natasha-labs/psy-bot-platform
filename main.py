@@ -9,11 +9,7 @@ from telegram.ext import (
     filters,
 )
 
-from engine.test_engine import (
-    send_entry_screen,
-    send_test_selection_screen,
-    handle_callback,
-)
+from engine.test_engine import send_entry_screen, handle_callback
 from tests.registry import TESTS
 from storage.results_store import get_user_results, delete_user_results
 
@@ -117,7 +113,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == "Начать исследование":
         context.user_data.clear()
-        await send_test_selection_screen(update, context, main_menu_markup)
+        await send_entry_screen(update, context, main_menu_markup)
         return
 
     if text == "Мои результаты":
