@@ -106,8 +106,8 @@ async def handle_paid_callback(update, context):
         )
 
         result_payload = TEST_DEF["build_result"](
-            context.user_data["paid_answers"],
             user_id,
+            context.user_data["paid_answers"],
         )
 
         save_deep_profile_result(
