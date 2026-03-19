@@ -1,85 +1,185 @@
 SIGNAL_LABELS = {
-    "CONTROL": "Контроль",
-    "AVOIDANCE": "Избегание",
-    "REACTION": "Реактивность",
-    "SUPPRESSION": "Подавление",
+    "CONTROL": "контроль",
+    "AVOIDANCE": "избегание",
+    "REACTION": "реактивность",
+    "SUPPRESSION": "подавление",
 }
 
 
-def sort_signals(signal_map: dict) -> list[tuple[str, int]]:
-    return sorted(signal_map.items(), key=lambda item: item[1], reverse=True)
-
-
-def build_thinking_section(archetype_type: str, primary_pattern: str) -> str:
+def build_summary(archetype, primary, secondary):
     return (
-        f"Как думает:\n"
-        f"Основа — {archetype_type or '—'}.\n"
-        f"Ведущий паттерн — {SIGNAL_LABELS.get(primary_pattern, primary_pattern)}."
+        f"Ваш основной паттерн — {SIGNAL_LABELS.get(primary, primary)}, "
+        f"дополнительно проявляется {SIGNAL_LABELS.get(secondary, secondary)}.\n\n"
+        f"Это означает, что в напряжённых ситуациях вы склонны действовать через "
+        f"{SIGNAL_LABELS.get(primary, primary)}, а при усилении стресса "
+        f"подключается {SIGNAL_LABELS.get(secondary, secondary)}."
     )
 
 
-def build_decision_section(anxiety_type: str, primary_pattern: str, secondary_pattern: str) -> str:
+def build_thinking(archetype, primary):
+    archetype = (archetype or "").lower()
+
+    if primary == "CONTROL":
+        return (
+            "Как вы думаете\n"
+            "Вы стремитесь понимать и держать под контролем происходящее.\n"
+            "Вам важно видеть логику, предсказуемость и управляемость.\n"
+            "В неопределённости вы начинаете усиливать контроль, чтобы снизить внутреннее напряжение."
+        )
+
+    if primary == "AVOIDANCE":
+        return (
+            "Как вы думаете\n"
+            "Вы склонны избегать перегрузки и сложных ситуаций, сохраняя внутреннюю стабильность.\n"
+            "Вам важно не входить в состояние, где вы теряете ощущение опоры."
+        )
+
+    if primary == "REACTION":
+        return (
+            "Как вы думаете\n"
+            "Вы реагируете быстро и эмоционально, часто раньше, чем успеваете осмыслить происходящее.\n"
+            "Мысль включается уже после первичной реакции."
+        )
+
     return (
-        f"Как принимает решения:\n"
-        f"Тревожный профиль — {anxiety_type or '—'}.\n"
-        f"Ведущие сигналы — "
-        f"{SIGNAL_LABELS.get(primary_pattern, primary_pattern)} / "
-        f"{SIGNAL_LABELS.get(secondary_pattern, secondary_pattern)}."
+        "Как вы думаете\n"
+        "Вы склонны сдерживать реакции и держать внутреннее напряжение внутри,\n"
+        "даже когда оно уже накопилось.\n"
+        "Снаружи это может выглядеть как собранность, но внутри идёт сильная нагрузка."
     )
 
 
-def build_distortion_section(shadow_type: str, primary_pattern: str, secondary_pattern: str) -> str:
+def build_decisions(anxiety, primary):
+    anxiety = (anxiety or "").lower()
+
+    if primary == "AVOIDANCE":
+        return (
+            "Как вы принимаете решения\n"
+            "Вы откладываете решения, чтобы не сталкиваться с внутренним напряжением.\n"
+            "В моменте это даёт облегчение, но затем возвращает ту же ситуацию снова."
+        )
+
+    if primary == "CONTROL":
+        return (
+            "Как вы принимаете решения\n"
+            "Вы начинаете усиливать контроль, пытаясь просчитать все риски.\n"
+            "Решение принимается только тогда, когда появляется ощущение, что всё учтено."
+        )
+
+    if primary == "REACTION":
+        return (
+            "Как вы принимаете решения\n"
+            "Вы можете принять решение импульсивно, чтобы снять напряжение,\n"
+            "а уже потом осмысливать последствия."
+        )
+
     return (
-        f"Где искажает реальность:\n"
-        f"Теневая тема — {shadow_type or '—'}.\n"
-        f"Сигналы — "
-        f"{SIGNAL_LABELS.get(primary_pattern, primary_pattern)} / "
-        f"{SIGNAL_LABELS.get(secondary_pattern, secondary_pattern)}."
+        "Как вы принимаете решения\n"
+        "Вы откладываете решение, удерживая всё внутри,\n"
+        "пока напряжение не станет слишком сильным."
     )
 
 
-def build_conflict_section(archetype_type: str, shadow_type: str) -> str:
+def build_distortions(shadow, primary):
+    if primary == "CONTROL":
+        return (
+            "Где вы себя не видите\n"
+            "Вы можете считать, что просто берёте ответственность и держите всё под контролем.\n"
+            "Но на деле это попытка снизить внутреннюю тревогу через управление внешним."
+        )
+
+    if primary == "AVOIDANCE":
+        return (
+            "Где вы себя не видите\n"
+            "Вы можете считать, что просто не хотите лишнего напряжения.\n"
+            "Но на деле вы избегаете ситуаций, которые требуют внутреннего усилия и изменений."
+        )
+
+    if primary == "REACTION":
+        return (
+            "Где вы себя не видите\n"
+            "Вы можете считать, что просто честно реагируете.\n"
+            "Но на деле реакция возникает быстрее, чем осмысление, и это управляет вами."
+        )
+
     return (
-        f"Где внутренний конфликт:\n"
-        f"Архетип — {archetype_type or '—'}.\n"
-        f"Тень — {shadow_type or '—'}."
+        "Где вы себя не видите\n"
+        "Вы можете считать, что хорошо держите себя в руках.\n"
+        "Но на деле вы накапливаете напряжение, которое позже всё равно выходит."
     )
 
 
-def build_energy_section(primary_pattern: str, secondary_pattern: str) -> str:
+def build_conflict(archetype, shadow):
     return (
-        f"Где теряет энергию:\n"
-        f"Основная утечка — {SIGNAL_LABELS.get(primary_pattern, primary_pattern)}.\n"
-        f"Вторичная — {SIGNAL_LABELS.get(secondary_pattern, secondary_pattern)}."
+        "Где внутренний конфликт\n"
+        f"С одной стороны вы стремитесь к проявлению типа «{archetype or '—'}», "
+        f"с другой — внутри есть тема «{shadow or '—'}», которая это ограничивает.\n"
+        "Именно здесь возникает внутреннее противоречие между тем, как вы хотите действовать,\n"
+        "и тем, что внутри удерживает или искажает движение."
     )
 
 
-def build_deep_result(
-    *,
-    archetype_type: str,
-    shadow_type: str,
-    anxiety_type: str,
-    primary_pattern: str,
-    secondary_pattern: str,
-    signal_map: dict,
-) -> dict:
-    sections = [
-        build_thinking_section(archetype_type, primary_pattern),
-        build_decision_section(anxiety_type, primary_pattern, secondary_pattern),
-        build_distortion_section(shadow_type, primary_pattern, secondary_pattern),
-        build_conflict_section(archetype_type, shadow_type),
-        build_energy_section(primary_pattern, secondary_pattern),
+def build_energy(primary, secondary):
+    primary_text = {
+        "CONTROL": "Вы тратите энергию на постоянный контроль и попытку удержать всё в стабильности.",
+        "AVOIDANCE": "Энергия уходит на избегание и откладывание, из-за чего ситуации возвращаются снова.",
+        "REACTION": "Энергия уходит на резкие реакции и последующее восстановление.",
+        "SUPPRESSION": "Энергия уходит на удержание эмоций и внутреннего напряжения.",
+    }.get(primary, "Энергия уходит на внутреннее напряжение.")
+
+    return (
+        "Где уходит энергия\n"
+        f"{primary_text}\n"
+        f"Дополнительно это усиливается через {SIGNAL_LABELS.get(secondary, secondary)}, "
+        "что создаёт повторяющийся цикл."
+    )
+
+
+def build_actions(primary):
+    actions_map = {
+        "CONTROL": [
+            "Отслеживайте момент, когда вы начинаете усиливать контроль — это сигнал тревоги, а не реальной необходимости.",
+            "Перед тем как всё перепроверять, задайте себе вопрос: что реально требует внимания, а что я контролирую из напряжения.",
+            "Разделяйте: что зависит от вас, а что нет.",
+        ],
+        "AVOIDANCE": [
+            "Если вы откладываете разговор или решение — фиксируйте это письменно и возвращайтесь к нему осознанно.",
+            "Не ждите идеального состояния для действия.",
+            "Начинайте с маленького шага вместо полного избегания.",
+        ],
+        "REACTION": [
+            "Дайте себе паузу перед реакцией — даже 10 секунд уже меняют поведение.",
+            "Не отвечайте в пике напряжения.",
+            "Сначала назовите своё состояние, потом действуйте.",
+        ],
+        "SUPPRESSION": [
+            "Если вы подавляете эмоции — начните хотя бы фиксировать их, а не игнорировать.",
+            "Отмечайте, где вы сдержали реакцию внешне, но внутри остались в напряжении.",
+            "Не путайте самоконтроль с замораживанием чувств.",
+        ],
+    }
+
+    actions = actions_map.get(primary, ["Фиксируйте повторяющиеся реакции и возвращайтесь к ним осознанно."])
+
+    return "Что делать\n" + "\n".join([f"— {item}" for item in actions])
+
+
+def build_deep_result(archetype, shadow, anxiety, primary, secondary):
+    parts = [
+        build_summary(archetype, primary, secondary),
+        build_thinking(archetype, primary),
+        build_decisions(anxiety, primary),
+        build_distortions(shadow, primary),
+        build_conflict(archetype, shadow),
+        build_energy(primary, secondary),
+        build_actions(primary),
     ]
 
-    text = (
-        "Глубокий профиль\n\n"
-        + "\n\n".join(sections)
-    )
+    full_text = "\n\n".join(parts)
 
     return {
-        "text": text,
-        "share_text": "Глубокий профиль готов.",
-        "primary_pattern": primary_pattern,
-        "secondary_pattern": secondary_pattern,
-        "signals": signal_map,
+        "text": full_text,
+        "share_text": "Я прошёл глубокий разбор личности",
+        "primary_pattern": primary,
+        "secondary_pattern": secondary,
     }
