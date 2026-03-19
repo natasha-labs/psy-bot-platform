@@ -28,26 +28,73 @@ def save_results(data):
     )
 
 
-def save_user_result(user_id, test_key, title, result_text, profile_payload=None):
+def ensure_user_profile(user_id):
     data = load_results()
     user_id = str(user_id)
 
     if user_id not in data:
-        data[user_id] = {}
+        data[user_id] = {
+            "user_id": int(user_id) if str(user_id).isdigit() else user_id,
+            "completed_tests": [],
+            "results": {},
+            "paid_access": False,
+            "deep_profile_result": None,
+            "primary_pattern": None,
+            "secondary_pattern": None,
+            "deep_profile_answers": [],
+            "deep_profile_signals": {},
+            "deep_profile_completed_at": None,
+            "archetype_type": None,
+            "shadow_type": None,
+            "anxiety_type": None,
+        }
+        save_results(data)
 
-    data[user_id][test_key] = {
+    return data
+
+
+def save_user_result(user_id, test_key, title, result_text, profile_payload=None):
+    data = ensure_user_profile(user_id)
+    user_id = str(user_id)
+    profile_payload = profile_payload or {}
+
+    if "results" not in data[user_id]:
+        data[user_id]["results"] = {}
+
+    data[user_id]["results"][test_key] = {
         "title": title,
         "result_text": result_text,
-        "profile_payload": profile_payload or {},
+        "profile_payload": profile_payload,
         "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
     }
+
+    completed = set(data[user_id].get("completed_tests", []))
+    completed.add(test_key)
+    data[user_id]["completed_tests"] = list(completed)
+
+    if test_key == "archetype":
+        data[user_id]["archetype_type"] = profile_payload.get("main_label") or profile_payload.get("main_type")
+    elif test_key == "shadow":
+        data[user_id]["shadow_type"] = profile_payload.get("main_label") or profile_payload.get("main_type")
+    elif test_key == "anxiety":
+        data[user_id]["anxiety_type"] = profile_payload.get("main_label") or profile_payload.get("main_type")
 
     save_results(data)
 
 
 def get_user_results(user_id):
-    data = load_results()
+    data = ensure_user_profile(user_id)
+    return data.get(str(user_id), {}).get("results", {})
+
+
+def get_user_profile(user_id):
+    data = ensure_user_profile(user_id)
     return data.get(str(user_id), {})
+
+
+def get_completed_tests(user_id):
+    profile = get_user_profile(user_id)
+    return profile.get("completed_tests", [])
 
 
 def delete_user_results(user_id):
@@ -60,3 +107,40 @@ def delete_user_results(user_id):
         return True
 
     return False
+
+
+def set_paid_access(user_id, value: bool):
+    data = ensure_user_profile(user_id)
+    user_id = str(user_id)
+    data[user_id]["paid_access"] = bool(value)
+    save_results(data)
+
+
+def has_paid_access(user_id) -> bool:
+    profile = get_user_profile(user_id)
+    return bool(profile.get("paid_access", False))
+
+
+def save_deep_profile_result(
+    user_id,
+    result_payload,
+    answers,
+    signal_map,
+    primary_pattern,
+    secondary_pattern,
+):
+    data = ensure_user_profile(user_id)
+    user_id = str(user_id)
+
+    data[user_id]["deep_profile_result"] = result_payload.get("text")
+    data[user_id]["primary_pattern"] = primary_pattern
+    data[user_id]["secondary_pattern"] = secondary_pattern
+    data[user_id]["deep_profile_answers"] = answers
+    data[user_id]["deep_profile_signals"] = signal_map
+    data[user_id]["deep_profile_completed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+    completed = set(data[user_id].get("completed_tests", []))
+    completed.add("deep_profile")
+    data[user_id]["completed_tests"] = list(completed)
+
+    save_results(data)
