@@ -18,10 +18,7 @@ async def send_paid_entry(update, context):
     if not has_paid_access(user_id):
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text=(
-                "Платный блок недоступен.\n\n"
-                "Сначала должен быть подтверждён доступ."
-            ),
+            text="Платный блок пока недоступен. Нужен подтверждённый доступ.",
         )
         return
 
@@ -29,8 +26,8 @@ async def send_paid_entry(update, context):
         chat_id=update.effective_chat.id,
         text=(
             "Второй этап диагностики.\n\n"
-            "Нужно ответить ещё на 10–12 вопросов.\n"
-            "После этого будет собран глубокий результат."
+            "Сейчас будет уточнение профиля через дополнительные вопросы.\n"
+            "Нужно ответить ещё на 10–12 вопросов."
         ),
         reply_markup=get_paid_entry_keyboard(),
     )
