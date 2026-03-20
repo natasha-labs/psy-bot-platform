@@ -38,6 +38,8 @@ def ensure_user_profile(user_id):
             "completed_tests": [],
             "results": {},
             "paid_access": False,
+            "deep_profile_started": False,
+            "deep_profile_completed": False,
             "deep_profile_result": None,
             "primary_pattern": None,
             "secondary_pattern": None,
@@ -47,6 +49,7 @@ def ensure_user_profile(user_id):
             "archetype_type": None,
             "shadow_type": None,
             "anxiety_type": None,
+            "payment_info": None,
         }
         save_results(data)
 
@@ -57,9 +60,6 @@ def save_user_result(user_id, test_key, title, result_text, profile_payload=None
     data = ensure_user_profile(user_id)
     user_id = str(user_id)
     profile_payload = profile_payload or {}
-
-    if "results" not in data[user_id]:
-        data[user_id]["results"] = {}
 
     data[user_id]["results"][test_key] = {
         "title": title,
@@ -93,8 +93,7 @@ def get_user_profile(user_id):
 
 
 def get_completed_tests(user_id):
-    profile = get_user_profile(user_id)
-    return profile.get("completed_tests", [])
+    return get_user_profile(user_id).get("completed_tests", [])
 
 
 def delete_user_results(user_id):
@@ -121,6 +120,27 @@ def has_paid_access(user_id) -> bool:
     return bool(profile.get("paid_access", False))
 
 
+def mark_deep_profile_started(user_id, value=True):
+    data = ensure_user_profile(user_id)
+    user_id = str(user_id)
+    data[user_id]["deep_profile_started"] = bool(value)
+    save_results(data)
+
+
+def mark_deep_profile_completed(user_id, value=True):
+    data = ensure_user_profile(user_id)
+    user_id = str(user_id)
+    data[user_id]["deep_profile_completed"] = bool(value)
+    save_results(data)
+
+
+def set_payment_info(user_id, payment_info: dict):
+    data = ensure_user_profile(user_id)
+    user_id = str(user_id)
+    data[user_id]["payment_info"] = payment_info
+    save_results(data)
+
+
 def save_deep_profile_result(
     user_id,
     result_payload,
@@ -138,6 +158,8 @@ def save_deep_profile_result(
     data[user_id]["deep_profile_answers"] = answers
     data[user_id]["deep_profile_signals"] = signal_map
     data[user_id]["deep_profile_completed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+    data[user_id]["deep_profile_started"] = True
+    data[user_id]["deep_profile_completed"] = True
 
     completed = set(data[user_id].get("completed_tests", []))
     completed.add("deep_profile")
