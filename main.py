@@ -6,6 +6,7 @@ from telegram.ext import (
     MessageHandler,
     CallbackQueryHandler,
     ContextTypes,
+    PreCheckoutQueryHandler,
     filters,
 )
 
@@ -13,6 +14,11 @@ from engine.test_engine import send_entry_screen, handle_callback as handle_free
 from flows.paid_block.paid_entry import send_paid_entry
 from flows.paid_block.deep_profile_flow import handle_paid_callback
 from flows.paid_block.paid_access import has_paid_access
+from flows.paid_block.payment_flow import (
+    send_deep_profile_invoice,
+    handle_pre_checkout,
+    handle_successful_payment,
+)
 from tests.registry import TESTS
 from storage.results_store import (
     get_user_results,
@@ -55,10 +61,7 @@ def get_main_menu(user_id):
 
 def build_results_text(results: dict) -> str:
     if not results:
-        return (
-            "У вас пока нет сохранённых результатов.\n\n"
-            "Начните исследование."
-        )
+        return "У вас пока нет сохранённых результатов."
 
     ordered_keys = ["anxiety", "archetype", "shadow"]
     lines = ["*Мои результаты*\n"]
@@ -76,10 +79,7 @@ def build_results_text(results: dict) -> str:
 
 
 def build_about_text() -> str:
-    return (
-        "Это система психологических тестов.\n\n"
-        "Есть бесплатный блок и платный блок глубокой диагностики."
-    )
+    return "Это система психологических тестов: бесплатный блок и платный глубокий разбор."
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -116,7 +116,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await update.message.reply_text(
             "Ваши результаты удалены.",
-            reply_markup=main_menu_markup,
+            reply_markup=get_main_menu(user_id),
         )
         return
 
@@ -144,7 +144,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if text == "Открыть платный блок":
-        await send_paid_entry(update, context)
+        if has_paid_access(user_id):
+            await send_paid_entry(update, context)
+        else:
+            await send_deep_profile_invoice(update, context)
         return
 
     if text == "Мои результаты":
@@ -189,8 +192,11 @@ async def handle_all_callbacks(update: Update, context: ContextTypes.DEFAULT_TYP
         await handle_paid_callback(update, context)
         return
 
-    if data == "full_profile_info" and has_paid_access(user_id):
-        await send_paid_entry(update, context)
+    if data == "full_profile_info":
+        if has_paid_access(user_id):
+            await send_paid_entry(update, context)
+        else:
+            await send_deep_profile_invoice(update, context)
         return
 
     await handle_free_callback(update, context, main_menu_markup, TESTS)
@@ -198,9 +204,13 @@ async def handle_all_callbacks(update: Update, context: ContextTypes.DEFAULT_TYP
 
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(handle_all_callbacks))
+    app.add_handler(PreCheckoutQueryHandler(handle_pre_checkout))
+    app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, handle_successful_payment))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
     app.run_polling()
 
 
