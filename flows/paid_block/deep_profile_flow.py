@@ -2,16 +2,17 @@ import asyncio
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
 from tests.deep_profile.test_def import TEST_DEF
-from storage.results_store import save_deep_profile_result
+from storage.results_store import (
+    save_deep_profile_result,
+    mark_deep_profile_started,
+)
 from flows.paid_block.paid_access import has_paid_access
 
 
 def get_paid_question_keyboard(options):
     rows = []
     for index, option in enumerate(options):
-        rows.append(
-            [InlineKeyboardButton(option["text"], callback_data=f"paid_ans:{index}")]
-        )
+        rows.append([InlineKeyboardButton(option["text"], callback_data=f"paid_ans:{index}")])
     return InlineKeyboardMarkup(rows)
 
 
@@ -30,9 +31,11 @@ async def start_deep_profile(update, context):
     if not has_paid_access(user_id):
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Нет доступа к платному блоку.",
+            text="Нет доступа к платному блоку. Сначала нужна оплата.",
         )
         return
+
+    mark_deep_profile_started(user_id, True)
 
     context.user_data["paid_test_key"] = TEST_DEF["key"]
     context.user_data["paid_index"] = 0
@@ -72,6 +75,13 @@ async def handle_paid_callback(update, context):
     if not data.startswith("paid_ans:"):
         return
 
+    if not has_paid_access(user_id):
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Нет доступа ко второму блоку. Сначала нужна оплата.",
+        )
+        return
+
     index = context.user_data.get("paid_index", 0)
     questions = TEST_DEF["questions"]
     question = questions[index]
@@ -104,6 +114,8 @@ async def handle_paid_callback(update, context):
             chat_id=update.effective_chat.id,
             text="Анализируем ваши ответы...",
         )
+
+        await asyncio.sleep(0.8)
 
         result_payload = TEST_DEF["build_result"](
             user_id,
