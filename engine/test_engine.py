@@ -67,10 +67,8 @@ def build_question_text(title: str, total: int, index: int, question_text: str) 
     )
 
 
-def build_answered_question_text(title: str, total: int, index: int, question_text: str, answer_text: str) -> str:
+def build_answered_question_text(question_text: str, answer_text: str) -> str:
     return (
-        f"*{title}*\n"
-        f"Вопрос {index + 1} / {total}\n\n"
         f"*{question_text}*\n\n"
         f"✅ {answer_text}"
     )
@@ -158,14 +156,12 @@ async def send_after_test_step(update, context, test_def, result_text, profile_p
     results = get_user_results(user_id)
     remaining = get_remaining_tests(results)
 
-    # 1. Показываем результат текущего теста
     await context.bot.send_message(
         chat_id=chat_id,
         text=result_text,
         parse_mode="Markdown",
     )
 
-    # 2. Если ещё остались тесты — только кнопка продолжения
     if remaining:
         await context.bot.send_message(
             chat_id=chat_id,
@@ -174,7 +170,6 @@ async def send_after_test_step(update, context, test_def, result_text, profile_p
         )
         return
 
-    # 3. Если это уже третий тест — показываем базовый код и только кнопку платного уровня
     if enough_for_basic_personality_code(results):
         payload = build_basic_personality_code(results)
         code_text = render_basic_personality_code(payload)
@@ -228,8 +223,6 @@ async def handle_callback(update, context, main_menu_markup, tests):
         await begin_test(update, context, test_key, tests[test_key])
         return
 
-    # кнопку full_profile_info здесь не обрабатываем:
-    # её обрабатывает main.py и решает — оплата или вход во второй блок
     if data == "full_profile_info":
         return
 
@@ -256,9 +249,6 @@ async def handle_callback(update, context, main_menu_markup, tests):
     question_text = test_def["get_question_text"](current_question)
 
     selected_view = build_answered_question_text(
-        title=test_def["title"],
-        total=len(questions),
-        index=index,
         question_text=question_text,
         answer_text=answer_text,
     )
