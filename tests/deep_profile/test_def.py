@@ -33,7 +33,6 @@ def build_result(user_id, answers):
             signals[key] += score
 
     sorted_signals = sorted(signals.items(), key=lambda x: x[1], reverse=True)
-
     primary_pattern = sorted_signals[0][0]
     secondary_pattern = sorted_signals[1][0]
 
