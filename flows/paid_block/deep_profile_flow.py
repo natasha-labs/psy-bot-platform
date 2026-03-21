@@ -42,6 +42,47 @@ def build_paid_question_text(question: dict, index: int, total: int) -> str:
     )
 
 
+def split_long_text(text: str, limit: int = 3500):
+    parts = []
+    current = ""
+
+    for block in text.split("\n\n"):
+        candidate = block if not current else f"{current}\n\n{block}"
+        if len(candidate) <= limit:
+            current = candidate
+        else:
+            if current:
+                parts.append(current)
+            if len(block) <= limit:
+                current = block
+            else:
+                # если отдельный блок слишком длинный — режем жёстко
+                chunk = ""
+                for line in block.split("\n"):
+                    candidate_line = line if not chunk else f"{chunk}\n{line}"
+                    if len(candidate_line) <= limit:
+                        chunk = candidate_line
+                    else:
+                        if chunk:
+                            parts.append(chunk)
+                        chunk = line
+                current = chunk
+
+    if current:
+        parts.append(current)
+
+    return parts
+
+
+async def send_result_chunks(chat_id, context, text: str):
+    chunks = split_long_text(text)
+    for chunk in chunks:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=chunk,
+        )
+
+
 async def start_deep_profile(update, context):
     user = update.effective_user
     user_id = user.id if user else "unknown"
@@ -114,7 +155,7 @@ async def handle_paid_callback(update, context):
 
         try:
             await query.edit_message_text(
-                text=f"{BEHAVIOR_QUESTION_TEXT}\n\n✅ {option_text}",
+                text=f"{BEHAVIOR_QUESTION_TEXT}\n✅ {option_text}",
             )
         except Exception:
             pass
@@ -126,32 +167,38 @@ async def handle_paid_callback(update, context):
 
         await asyncio.sleep(0.8)
 
-        answers = context.user_data.get("paid_answers", [])
-        result_payload = TEST_DEF["build_result"](
-            user_id=user_id,
-            answers=answers,
-            behavior_modifier=modifier_value,
-        )
+        try:
+            answers = context.user_data.get("paid_answers", [])
 
-        save_deep_profile_result(
-            user_id=user_id,
-            result_payload=result_payload,
-            answers=answers,
-            signal_map=result_payload.get("signals", {}),
-            primary_pattern=result_payload.get("primary_pattern"),
-            secondary_pattern=result_payload.get("secondary_pattern"),
-            behavior_modifier=modifier_value,
-        )
+            result_payload = TEST_DEF["build_result"](
+                user_id=user_id,
+                answers=answers,
+                behavior_modifier=modifier_value,
+            )
 
-        context.user_data.pop("paid_test_key", None)
-        context.user_data.pop("paid_index", None)
-        context.user_data.pop("paid_answers", None)
-        context.user_data.pop("behavior_modifier", None)
+            save_deep_profile_result(
+                user_id=user_id,
+                result_payload=result_payload,
+                answers=answers,
+                signal_map=result_payload.get("signals", {}),
+                primary_pattern=result_payload.get("primary_pattern"),
+                secondary_pattern=result_payload.get("secondary_pattern"),
+                behavior_modifier=modifier_value,
+            )
 
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=result_payload["text"],
-        )
+            context.user_data.pop("paid_test_key", None)
+            context.user_data.pop("paid_index", None)
+            context.user_data.pop("paid_answers", None)
+            context.user_data.pop("behavior_modifier", None)
+
+            result_text = result_payload.get("text", "Результат собран, но текст пуст.")
+            await send_result_chunks(update.effective_chat.id, context, result_text)
+
+        except Exception as e:
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=f"Ошибка при сборке результата: {str(e)}",
+            )
         return
 
     if not data.startswith("paid_ans:"):
@@ -173,7 +220,7 @@ async def handle_paid_callback(update, context):
 
     try:
         await query.edit_message_text(
-            text=f"{question['text']}\n\n✅ {option['text']}",
+            text=f"{question['text']}\n✅ {option['text']}",
         )
     except Exception:
         pass
