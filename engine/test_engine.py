@@ -68,10 +68,7 @@ def build_question_text(title: str, total: int, index: int, question_text: str) 
 
 
 def build_answered_question_text(question_text: str, answer_text: str) -> str:
-    return (
-        f"*{question_text}*\n\n"
-        f"✅ {answer_text}"
-    )
+    return f"*{question_text}*\n✅ {answer_text}"
 
 
 async def send_entry_screen(update, context, main_menu_markup):
@@ -171,7 +168,7 @@ async def send_after_test_step(update, context, test_def, result_text, profile_p
         return
 
     if enough_for_basic_personality_code(results):
-        payload = build_basic_personality_code(results)
+        payload = build_basic_personality_code(results, user_id=user_id)
         code_text = render_basic_personality_code(payload)
 
         await context.bot.send_message(
