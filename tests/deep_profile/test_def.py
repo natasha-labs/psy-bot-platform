@@ -19,7 +19,7 @@ def get_option_value(option):
     return option["value"]
 
 
-def build_result(user_id, answers):
+def build_result(user_id, answers, behavior_modifier):
     signals = {
         "CONTROL": 0,
         "AVOIDANCE": 0,
@@ -33,26 +33,28 @@ def build_result(user_id, answers):
             signals[key] += score
 
     sorted_signals = sorted(signals.items(), key=lambda x: x[1], reverse=True)
+
     primary_pattern = sorted_signals[0][0]
     secondary_pattern = sorted_signals[1][0]
 
     profile = get_user_profile(user_id)
 
-    archetype = profile.get("archetype_type")
-    shadow = profile.get("shadow_type")
-    anxiety = profile.get("anxiety_type")
+    archetype_type = profile.get("archetype_type")
+    shadow_type = profile.get("shadow_type")
+    anxiety_type = profile.get("anxiety_type")
 
     result = build_deep_result(
-        archetype,
-        shadow,
-        anxiety,
-        primary_pattern,
-        secondary_pattern,
+        archetype_type=archetype_type,
+        shadow_type=shadow_type,
+        anxiety_type=anxiety_type,
+        primary_pattern=primary_pattern,
+        secondary_pattern=secondary_pattern,
+        behavior_modifier=behavior_modifier,
     )
 
     result["signals"] = signals
-    result["archetype_type"] = archetype
-    result["shadow_type"] = shadow
-    result["anxiety_type"] = anxiety
+    result["archetype_type"] = archetype_type
+    result["shadow_type"] = shadow_type
+    result["anxiety_type"] = anxiety_type
 
     return result
