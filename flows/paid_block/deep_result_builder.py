@@ -14,6 +14,13 @@ PRIMARY_PORTRAIT = {
     ),
 }
 
+PRIMARY_RU = {
+    "CONTROL": "контроль",
+    "AVOIDANCE": "избегание",
+    "REACTION": "реакция",
+    "SUPPRESSION": "сдерживание",
+}
+
 HOW_IT_WORKS = {
     "CONTROL": (
         "Контроль для тебя — это не просто привычка, а способ справляться с внутренним напряжением. "
@@ -105,10 +112,17 @@ COMMON_ENDING = (
 )
 
 
+def _secondary_text(secondary_pattern: str) -> str:
+    return PRIMARY_RU.get(secondary_pattern, secondary_pattern)
+
+
 def build_portrait(primary_pattern: str, secondary_pattern: str) -> str:
     text = PRIMARY_PORTRAIT[primary_pattern]
     if secondary_pattern:
-        text += f"\nДополнительно в тебе проявляется {secondary_pattern}, и это усиливает общий паттерн поведения."
+        text += (
+            f"\nДополнительно в тебе проявляется {_secondary_text(secondary_pattern)}, "
+            "и это усиливает общий паттерн поведения."
+        )
     return text
 
 
