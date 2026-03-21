@@ -7,7 +7,7 @@ from flows.paid_block.paid_entry import send_paid_entry
 
 PROVIDER_TOKEN = os.getenv("TELEGRAM_PROVIDER_TOKEN", "")
 PAYMENT_CURRENCY = os.getenv("PAYMENT_CURRENCY", "EUR")
-PAYMENT_AMOUNT = int(os.getenv("PAYMENT_AMOUNT", "990"))  # 9.90 в minor units
+PAYMENT_AMOUNT = int(os.getenv("PAYMENT_AMOUNT", "990"))
 
 
 async def send_deep_profile_invoice(update, context):
@@ -55,9 +55,6 @@ async def handle_successful_payment(update, context):
         },
     )
 
-    await update.message.reply_text(
-        "Оплата прошла успешно.\n\n"
-        "Открыт второй этап диагностики."
-    )
-
+    # После оплаты — сразу второй блок.
+    # Никаких экранов первого блока здесь не показываем.
     await send_paid_entry(update, context)
