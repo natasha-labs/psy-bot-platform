@@ -52,6 +52,7 @@ def get_main_menu(user_id):
         menu.append(["Открыть платный блок"])
 
     if is_admin(user_id):
+        menu.append(["QA: открыть блок 2"])
         menu.append(["Сбросить мои тесты"])
         menu.append(["Выдать платный доступ"])
         menu.append(["Забрать платный доступ"])
@@ -136,6 +137,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "Платный доступ снят.",
                 reply_markup=get_main_menu(user_id),
             )
+        return
+
+    if text == "QA: открыть блок 2":
+        if not is_admin(user_id):
+            await update.message.reply_text(
+                "Эта функция доступна только админу.",
+                reply_markup=main_menu_markup,
+            )
+            return
+
+        set_paid_access(user_id, True)
+        await send_paid_entry(update, context)
         return
 
     if text == "Начать исследование":
