@@ -3,14 +3,6 @@ from storage.results_store import get_user_profile
 from flows.paid_block.deep_result_builder import build_deep_result
 
 
-TEST_DEF = {
-    "key": "deep_profile",
-    "title": "Глубокий профиль",
-    "intro_text": "Сейчас мы уточним ваш профиль через дополнительные вопросы.",
-    "questions": questions,
-}
-
-
 def get_option_text(option):
     return option["text"]
 
@@ -30,7 +22,8 @@ def build_result(user_id, answers, behavior_modifier):
     for answer in answers:
         value = answer.get("value", {})
         for key, score in value.items():
-            signals[key] += score
+            if key in signals:
+                signals[key] += score
 
     sorted_signals = sorted(signals.items(), key=lambda x: x[1], reverse=True)
 
@@ -58,3 +51,14 @@ def build_result(user_id, answers, behavior_modifier):
     result["anxiety_type"] = anxiety_type
 
     return result
+
+
+TEST_DEF = {
+    "key": "deep_profile",
+    "title": "Глубокий профиль",
+    "intro_text": "Сейчас мы уточним ваш профиль через дополнительные вопросы.",
+    "questions": questions,
+    "get_option_text": get_option_text,
+    "get_option_value": get_option_value,
+    "build_result": build_result,
+}
