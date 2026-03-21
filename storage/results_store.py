@@ -43,6 +43,7 @@ def ensure_user_profile(user_id):
             "deep_profile_result": None,
             "primary_pattern": None,
             "secondary_pattern": None,
+            "behavior_modifier": None,
             "deep_profile_answers": [],
             "deep_profile_signals": {},
             "deep_profile_completed_at": None,
@@ -148,6 +149,7 @@ def save_deep_profile_result(
     signal_map,
     primary_pattern,
     secondary_pattern,
+    behavior_modifier,
 ):
     data = ensure_user_profile(user_id)
     user_id = str(user_id)
@@ -155,6 +157,7 @@ def save_deep_profile_result(
     data[user_id]["deep_profile_result"] = result_payload.get("text")
     data[user_id]["primary_pattern"] = primary_pattern
     data[user_id]["secondary_pattern"] = secondary_pattern
+    data[user_id]["behavior_modifier"] = behavior_modifier
     data[user_id]["deep_profile_answers"] = answers
     data[user_id]["deep_profile_signals"] = signal_map
     data[user_id]["deep_profile_completed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
