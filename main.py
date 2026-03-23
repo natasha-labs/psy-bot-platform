@@ -193,27 +193,36 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def handle_all_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_all_callbacks(update, context):
+    query = update.callback_query
+
+    if not query:
+        return
+
+    await query.answer()
+
+    data = query.data
+
     user = update.effective_user
     user_id = user.id if user else "unknown"
-    main_menu_markup = get_main_menu(user_id)
 
-    query = update.callback_query
-    data = query.data if query else ""
+    # ===== ОПЛАТА (вход во 2 блок) =====
+    if data == "buy_full_code":
+        from flows.paid_block.paid_entry import send_paid_entry
+        await send_paid_entry(update, context)
+        return
 
-    if data.startswith("paid_"):
+    # ===== СТАРТ ГЛУБОКОГО РАЗБОРА =====
+    if data == "start_deep_profile":
+        from flows.paid_block.deep_profile_flow import handle_paid_callback
         await handle_paid_callback(update, context)
         return
 
-    if data == "full_profile_info":
-        if has_paid_access(user_id):
-            await send_paid_entry(update, context)
-        else:
-            await send_deep_profile_invoice(update, context)
-        return
+    # ===== ВСЕ ОСТАЛЬНОЕ =====
+    main_menu_markup = get_main_menu(user_id)
 
     await handle_free_callback(update, context, main_menu_markup, TESTS)
-
+    
 
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
