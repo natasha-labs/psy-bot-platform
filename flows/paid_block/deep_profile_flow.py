@@ -85,6 +85,10 @@ async def handle_paid_callback(update, context):
         await start_deep_profile(update, context)
         return
 
+    if data == "paid_start_deep_profile":
+        await start_deep_profile(update, context)
+        return
+
     if data == "paid_restart":
         await start_deep_profile(update, context)
         return
@@ -97,7 +101,7 @@ async def handle_paid_callback(update, context):
     if data == "paid_daily_work":
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Блок ежедневной работы будет следующим этапом.",
+            text="Переход к ежедневной работе с собой будет следующим модулем.",
         )
         return
 
@@ -107,13 +111,19 @@ async def handle_paid_callback(update, context):
     index = context.user_data.get("paid_index", 0)
     questions = TEST_DEF["questions"]
 
+    if index >= len(questions):
+        return
+
     question = questions[index]
     option_index = int(data.split(":")[1])
     option = question["options"][option_index]
 
-    await query.edit_message_text(
-        text=f"{question['text']}\n\n✅ {option['text']}"
-    )
+    try:
+        await query.edit_message_text(
+            text=f"{question['text']}\n\n✅ {option['text']}"
+        )
+    except Exception:
+        pass
 
     context.user_data["paid_answers"].append(option["value"])
     context.user_data["paid_index"] = index + 1
@@ -121,7 +131,6 @@ async def handle_paid_callback(update, context):
     await asyncio.sleep(0.3)
 
     if context.user_data["paid_index"] >= len(questions):
-
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text="Анализируем твои ответы…",
@@ -130,7 +139,6 @@ async def handle_paid_callback(update, context):
         await asyncio.sleep(1.2)
 
         answers = context.user_data["paid_answers"]
-
         result_payload = TEST_DEF["build_result"](user_id, answers)
 
         save_deep_profile_result(
