@@ -206,11 +206,12 @@ async def handle_all_callbacks(update: Update, context: ContextTypes.DEFAULT_TYP
 
     # Кнопка с финала бесплатного блока
     if data in ("full_profile_info", "buy_full_code"):
-        if has_paid_access(user_id):
-            await send_paid_entry(update, context)
-        else:
-            await send_deep_profile_invoice(update, context)
-        return
+    if has_paid_access(user_id):
+        from flows.paid_block.paid_space_flow import send_entry_screen
+        await send_entry_screen(update, context)
+    else:
+        await send_deep_profile_invoice(update, context)
+    return
 
     # Весь платный блок
     if data.startswith("paid_") or data == "start_deep_profile":
