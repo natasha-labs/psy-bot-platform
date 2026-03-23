@@ -1,12 +1,16 @@
-result = TEST_DEF["build_result"](user_id, answers)
+from flows.paid_block.paid_access import grant_paid_access
 
-await query.message.reply_text(result["part1"])
-await query.message.reply_text(result["part2"])
+async def send_payment(update, context):
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="Оплата тестовая (эмуляция)"
+    )
 
-keyboard = InlineKeyboardMarkup([
-    [InlineKeyboardButton("Перейти к ежедневной работе с собой", callback_data="final_cta")],
-    [InlineKeyboardButton("Пройти разбор заново", callback_data="paid_restart")],
-    [InlineKeyboardButton("Назад", callback_data="paid_back")]
-])
+async def handle_payment_success(update, context):
+    user_id = update.effective_user.id
+    grant_paid_access(user_id)
 
-await query.message.reply_text(result["part3"], reply_markup=keyboard)
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="Оплата прошла. Доступ открыт."
+    )
