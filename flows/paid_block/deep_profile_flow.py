@@ -1,50 +1,31 @@
-import asyncio
-from tests.deep_profile.test_def import TEST_DEF
-from flows.paid_block.deep_result_builder import build_deep_result
+from flows.paid_block.paid_space_flow import (
+    send_entry_screen,
+    send_about_screen,
+    send_menu,
+    send_tool_stub,
+)
 
-user_answers = {}
 
 async def handle_paid_callback(update, context):
     query = update.callback_query
-    await query.answer()
+    data = query.data
 
-    if query.data == "start_deep_profile":
-        user_answers[query.from_user.id] = []
-        await send_question(query, context, 0)
+    if data == "paid_space_entry":
+        await send_about_screen(update, context)
+        return
 
-    elif query.data.startswith("dp_"):
-        _, q_index, value = query.data.split("|")
-        q_index = int(q_index)
+    if data == "paid_space_menu":
+        await send_menu(update, context)
+        return
 
-        user_answers[query.from_user.id].append(value)
+    if data == "about_space":
+        await send_about_screen(update, context)
+        return
 
-        if q_index + 1 < len(TEST_DEF):
-            await send_question(query, context, q_index + 1)
-        else:
-            await query.message.reply_text("Анализируем твои ответы...")
-            await asyncio.sleep(1.5)
+    if data == "back_to_space":
+        await send_menu(update, context)
+        return
 
-            result = build_deep_result(user_answers[query.from_user.id], context)
-
-            await query.message.reply_text(result["part1"])
-            await query.message.reply_text(result["part2"])
-            await query.message.reply_text(result["part3"])
-            await query.message.reply_text(result["part4"])
-
-async def send_question(query, context, index):
-    question = TEST_DEF[index]
-
-    buttons = []
-    for option in question["options"]:
-        buttons.append([
-            InlineKeyboardButton(
-                option["text"],
-                callback_data=f"dp_{index}|{option['type']}"
-            )
-        ])
-
-    from telegram import InlineKeyboardMarkup
-    await query.message.reply_text(
-        question["question"],
-        reply_markup=InlineKeyboardMarkup(buttons)
-    )
+    if data.startswith("tool_"):
+        await send_tool_stub(update, context)
+        return
