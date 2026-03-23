@@ -1,159 +1,50 @@
 import asyncio
-from telegram import InlineKeyboardMarkup, InlineKeyboardButton
-
 from tests.deep_profile.test_def import TEST_DEF
-from storage.results_store import (
-    save_deep_profile_result,
-    mark_deep_profile_started,
-)
-from flows.paid_block.paid_access import has_paid_access
+from flows.paid_block.deep_result_builder import build_deep_result
 
-
-def get_paid_question_keyboard(options):
-    rows = []
-    for index, option in enumerate(options):
-        rows.append([InlineKeyboardButton(option["text"], callback_data=f"paid_ans:{index}")])
-    return InlineKeyboardMarkup(rows)
-
-
-def get_final_keyboard():
-    return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("Перейти к ежедневной работе с собой", callback_data="paid_daily_work")],
-            [InlineKeyboardButton("Пройти разбор заново", callback_data="paid_restart")],
-            [InlineKeyboardButton("Назад", callback_data="paid_back")],
-        ]
-    )
-
-
-def build_paid_question_text(question: dict, index: int, total: int) -> str:
-    return (
-        f"Глубокий профиль\n"
-        f"Вопрос {index + 1} / {total}\n\n"
-        f"{question['text']}"
-    )
-
-
-async def start_deep_profile(update, context):
-    user_id = update.effective_user.id
-
-    if not has_paid_access(user_id):
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="Нет доступа ко второму блоку. Сначала нужна оплата.",
-        )
-        return
-
-    mark_deep_profile_started(user_id, True)
-
-    context.user_data["paid_test_key"] = TEST_DEF["key"]
-    context.user_data["paid_index"] = 0
-    context.user_data["paid_answers"] = []
-
-    await send_paid_question(update, context, 0)
-
-
-async def send_paid_question(update, context, index: int):
-    questions = TEST_DEF["questions"]
-    question = questions[index]
-
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=build_paid_question_text(question, index, len(questions)),
-        reply_markup=get_paid_question_keyboard(question["options"]),
-    )
-
-
-async def send_deep_result(chat_id, context, result_payload):
-    await context.bot.send_message(chat_id=chat_id, text=result_payload["part1"])
-    await context.bot.send_message(chat_id=chat_id, text=result_payload["part2"])
-    await context.bot.send_message(
-        chat_id=chat_id,
-        text=result_payload["part3"],
-        reply_markup=get_final_keyboard(),
-    )
-
+user_answers = {}
 
 async def handle_paid_callback(update, context):
     query = update.callback_query
     await query.answer()
 
-    data = query.data
-    user_id = update.effective_user.id
+    if query.data == "start_deep_profile":
+        user_answers[query.from_user.id] = []
+        await send_question(query, context, 0)
 
-    if data == "paid_start":
-        await start_deep_profile(update, context)
-        return
+    elif query.data.startswith("dp_"):
+        _, q_index, value = query.data.split("|")
+        q_index = int(q_index)
 
-    if data == "paid_start_deep_profile":
-        await start_deep_profile(update, context)
-        return
+        user_answers[query.from_user.id].append(value)
 
-    if data == "paid_restart":
-        await start_deep_profile(update, context)
-        return
+        if q_index + 1 < len(TEST_DEF):
+            await send_question(query, context, q_index + 1)
+        else:
+            await query.message.reply_text("Анализируем твои ответы...")
+            await asyncio.sleep(1.5)
 
-    if data == "paid_back":
-        from flows.paid_block.paid_entry import send_paid_entry
-        await send_paid_entry(update, context)
-        return
+            result = build_deep_result(user_answers[query.from_user.id], context)
 
-    if data == "paid_daily_work":
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="Переход к ежедневной работе с собой будет следующим модулем.",
-        )
-        return
+            await query.message.reply_text(result["part1"])
+            await query.message.reply_text(result["part2"])
+            await query.message.reply_text(result["part3"])
+            await query.message.reply_text(result["part4"])
 
-    if not data.startswith("paid_ans:"):
-        return
+async def send_question(query, context, index):
+    question = TEST_DEF[index]
 
-    index = context.user_data.get("paid_index", 0)
-    questions = TEST_DEF["questions"]
+    buttons = []
+    for option in question["options"]:
+        buttons.append([
+            InlineKeyboardButton(
+                option["text"],
+                callback_data=f"dp_{index}|{option['type']}"
+            )
+        ])
 
-    if index >= len(questions):
-        return
-
-    question = questions[index]
-    option_index = int(data.split(":")[1])
-    option = question["options"][option_index]
-
-    try:
-        await query.edit_message_text(
-            text=f"{question['text']}\n\n✅ {option['text']}"
-        )
-    except Exception:
-        pass
-
-    context.user_data["paid_answers"].append(option["value"])
-    context.user_data["paid_index"] = index + 1
-
-    await asyncio.sleep(0.3)
-
-    if context.user_data["paid_index"] >= len(questions):
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="Анализируем твои ответы…",
-        )
-
-        await asyncio.sleep(1.2)
-
-        answers = context.user_data["paid_answers"]
-        result_payload = TEST_DEF["build_result"](user_id, answers)
-
-        save_deep_profile_result(
-            user_id=user_id,
-            result_payload=result_payload,
-            answers=answers,
-            signal_map=result_payload.get("scores", {}),
-            primary_pattern=result_payload.get("main_pattern"),
-            secondary_pattern=result_payload.get("second_pattern"),
-            behavior_modifier=None,
-        )
-
-        context.user_data.clear()
-
-        await send_deep_result(update.effective_chat.id, context, result_payload)
-        return
-
-    await send_paid_question(update, context, context.user_data["paid_index"])
+    from telegram import InlineKeyboardMarkup
+    await query.message.reply_text(
+        question["question"],
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
