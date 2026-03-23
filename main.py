@@ -11,7 +11,6 @@ from telegram.ext import (
 )
 
 from engine.test_engine import send_entry_screen, handle_callback as handle_free_callback
-from flows.paid_block.paid_entry import send_paid_entry
 from flows.paid_block.deep_profile_flow import handle_paid_callback
 from flows.paid_block.paid_access import has_paid_access
 from flows.paid_block.payment_flow import (
@@ -80,7 +79,7 @@ def build_results_text(results: dict) -> str:
 
 
 def build_about_text() -> str:
-    return "Это система психологических тестов: бесплатный блок и платный глубокий разбор."
+    return "Это система психологических тестов: бесплатный блок и пространство самопознания после оплаты."
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -148,7 +147,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         set_paid_access(user_id, True)
-        await send_paid_entry(update, context)
+
+        from flows.paid_block.paid_space_flow import send_entry_screen as send_paid_space_entry
+        await send_paid_space_entry(update, context)
         return
 
     if text == "Начать исследование":
@@ -158,7 +159,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == "Открыть платный блок":
         if has_paid_access(user_id):
-            await send_paid_entry(update, context)
+            from flows.paid_block.paid_space_flow import send_entry_screen as send_paid_space_entry
+            await send_paid_space_entry(update, context)
         else:
             await send_deep_profile_invoice(update, context)
         return
@@ -206,15 +208,27 @@ async def handle_all_callbacks(update: Update, context: ContextTypes.DEFAULT_TYP
 
     # Кнопка с финала бесплатного блока
     if data in ("full_profile_info", "buy_full_code"):
-    if has_paid_access(user_id):
-        from flows.paid_block.paid_space_flow import send_entry_screen
-        await send_entry_screen(update, context)
-    else:
-        await send_deep_profile_invoice(update, context)
-    return
+        if has_paid_access(user_id):
+            from flows.paid_block.paid_space_flow import send_entry_screen as send_paid_space_entry
+            await send_paid_space_entry(update, context)
+        else:
+            await send_deep_profile_invoice(update, context)
+        return
 
-    # Весь платный блок
-    if data.startswith("paid_") or data == "start_deep_profile":
+    # Новый блок 2: пространство
+    if data in (
+        "paid_space_entry",
+        "paid_space_menu",
+        "tool_hellinger",
+        "tool_mac",
+        "tool_taro",
+        "tool_balance",
+        "tool_roles",
+        "tool_schema",
+        "tool_ifs",
+        "about_space",
+        "back_to_space",
+    ):
         await handle_paid_callback(update, context)
         return
 
