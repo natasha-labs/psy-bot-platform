@@ -1,64 +1,38 @@
 from tests.deep_profile.questions import questions
-from storage.results_store import get_user_profile
 from flows.paid_block.deep_result_builder import build_deep_result
+from storage.results_store import get_user_profile
+
+PRIORITY = ["control", "analyze", "avoid", "react"]
 
 
-def get_option_text(option):
-    return option["text"]
+def resolve_patterns(scores):
+    sorted_items = sorted(
+        scores.items(),
+        key=lambda x: (-x[1], PRIORITY.index(x[0]))
+    )
+    return sorted_items[0][0], sorted_items[1][0]
 
 
-def get_option_value(option):
-    return option["value"]
+def build_result(user_id, answers):
 
-
-def build_result(user_id, answers, behavior_modifier):
-    signals = {
-        "CONTROL": 0,
-        "AVOIDANCE": 0,
-        "REACTION": 0,
-        "SUPPRESSION": 0,
+    scores = {
+        "control": 0,
+        "avoid": 0,
+        "react": 0,
+        "analyze": 0,
     }
 
     for answer in answers:
-        value = answer.get("value", {})
-        for key, score in value.items():
-            if key in signals:
-                signals[key] += score
+        for key, value in answer.items():
+            scores[key] += value
 
-    sorted_signals = sorted(signals.items(), key=lambda x: x[1], reverse=True)
-
-    primary_pattern = sorted_signals[0][0]
-    secondary_pattern = sorted_signals[1][0]
+    main_pattern, second_pattern = resolve_patterns(scores)
 
     profile = get_user_profile(user_id)
+    archetype = profile.get("archetype_type", "—")
 
-    archetype_type = profile.get("archetype_type")
-    shadow_type = profile.get("shadow_type")
-    anxiety_type = profile.get("anxiety_type")
-
-    result = build_deep_result(
-        archetype_type=archetype_type,
-        shadow_type=shadow_type,
-        anxiety_type=anxiety_type,
-        primary_pattern=primary_pattern,
-        secondary_pattern=secondary_pattern,
-        behavior_modifier=behavior_modifier,
+    return build_deep_result(
+        main_pattern,
+        second_pattern,
+        archetype
     )
-
-    result["signals"] = signals
-    result["archetype_type"] = archetype_type
-    result["shadow_type"] = shadow_type
-    result["anxiety_type"] = anxiety_type
-
-    return result
-
-
-TEST_DEF = {
-    "key": "deep_profile",
-    "title": "Глубокий профиль",
-    "intro_text": "Сейчас мы уточним ваш профиль через дополнительные вопросы.",
-    "questions": questions,
-    "get_option_text": get_option_text,
-    "get_option_value": get_option_value,
-    "build_result": build_result,
-}
