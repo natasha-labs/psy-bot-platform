@@ -18,6 +18,13 @@ from flows.paid_block.payment_flow import (
     handle_pre_checkout,
     handle_successful_payment,
 )
+from flows.paid_block.paid_space_flow import (
+    get_space_menu_keyboard,
+    send_space_menu_text,
+    send_about_space,
+    send_tool_stub,
+    is_space_tool_text,
+)
 from tests.registry import TESTS
 from storage.results_store import (
     get_user_results,
@@ -32,6 +39,11 @@ ADMIN_ID = 5750354905
 if not TOKEN:
     raise RuntimeError("BOT_TOKEN is not set")
 
+
+START_KEYBOARD = ReplyKeyboardMarkup(
+    [["Начать"]],
+    resize_keyboard=True,
+)
 
 MAIN_MENU = [
     ["Начать исследование"],
@@ -48,10 +60,10 @@ def get_main_menu(user_id):
     menu = [row[:] for row in MAIN_MENU]
 
     if has_paid_access(user_id):
-        menu.append(["Открыть платный блок"])
+        menu.append(["Открыть пространство"])
 
     if is_admin(user_id):
-        menu.append(["QA: открыть блок 2"])
+        menu.append(["QA: открыть пространство"])
         menu.append(["Сбросить мои тесты"])
         menu.append(["Выдать платный доступ"])
         menu.append(["Забрать платный доступ"])
@@ -79,7 +91,7 @@ def build_results_text(results: dict) -> str:
 
 
 def build_about_text() -> str:
-    return "Это система психологических тестов: бесплатный блок и пространство самопознания после оплаты."
+    return "Это система психологических тестов: быстрый вход и пространство для дальнейшей работы с собой."
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -88,10 +100,32 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id if user else "unknown"
 
-    await send_entry_screen(
-        update=update,
-        context=context,
-        main_menu_markup=get_main_menu(user_id),
+    if has_paid_access(user_id):
+        await update.message.reply_text(
+            "Доступ к пространству уже открыт. Выбери, с чем хочешь поработать сегодня.",
+            reply_markup=get_space_menu_keyboard(),
+        )
+        return
+
+    text = (
+        "Привет. Меня зовут Наташа.\n"
+        "Я психолог и работаю в интегративном подходе.\n\n"
+        "Я не даю один метод.\n"
+        "Я собираю систему, которая показывает человека целиком.\n\n"
+        "Тебе не нужно больше искать ответы в разных местах.\n\n"
+        "Здесь ты можешь увидеть:\n"
+        "1. что с тобой происходит\n"
+        "2. почему это повторяется\n"
+        "3. где ты теряешь себя\n"
+        "4. куда уходит энергия\n"
+        "5. как это менять\n\n"
+        "👉 Начнём с быстрого входа.\n\n"
+        "Это займёт 2–3 минуты и покажет базовую картину."
+    )
+
+    await update.message.reply_text(
+        text,
+        reply_markup=START_KEYBOARD,
     )
 
 
@@ -103,6 +137,24 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     results = get_user_results(user_id)
     main_menu_markup = get_main_menu(user_id)
 
+    # ===== ПРОСТРАНСТВО (нижнее меню) =====
+    if text == "Открыть пространство":
+        await send_space_menu_text(update, context)
+        return
+
+    if text == "ℹ️ О пространстве":
+        await send_about_space(update, context)
+        return
+
+    if text == "🔄 Назад":
+        await send_space_menu_text(update, context)
+        return
+
+    if is_space_tool_text(text):
+        await send_tool_stub(update, context, text)
+        return
+
+    # ===== АДМИН =====
     if text == "Сбросить мои тесты":
         if not is_admin(user_id):
             await update.message.reply_text(
@@ -138,7 +190,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         return
 
-    if text == "QA: открыть блок 2":
+    if text == "QA: открыть пространство":
         if not is_admin(user_id):
             await update.message.reply_text(
                 "Эта функция доступна только админу.",
@@ -147,29 +199,27 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         set_paid_access(user_id, True)
+        await update.message.reply_text(
+            "Доступ к пространству уже открыт. Выбери, с чем хочешь поработать сегодня.",
+            reply_markup=get_space_menu_keyboard(),
+        )
+        return
 
-        from flows.paid_block.paid_space_flow import send_entry_screen as send_paid_space_entry
-        await send_paid_space_entry(update, context)
+    # ===== БЕСПЛАТНЫЙ БЛОК =====
+    if text == "Начать":
+        await send_entry_screen(update, context, get_main_menu(user_id))
         return
 
     if text == "Начать исследование":
         context.user_data.clear()
-        await send_entry_screen(update, context, main_menu_markup)
-        return
-
-    if text == "Открыть платный блок":
-        if has_paid_access(user_id):
-            from flows.paid_block.paid_space_flow import send_entry_screen as send_paid_space_entry
-            await send_paid_space_entry(update, context)
-        else:
-            await send_deep_profile_invoice(update, context)
+        await send_entry_screen(update, context, get_main_menu(user_id))
         return
 
     if text == "Мои результаты":
         context.user_data.clear()
         await update.message.reply_text(
             build_results_text(results),
-            reply_markup=main_menu_markup,
+            reply_markup=get_main_menu(user_id),
             parse_mode="Markdown",
         )
 
@@ -177,7 +227,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if profile.get("deep_profile_result"):
             await update.message.reply_text(
                 profile["deep_profile_result"],
-                reply_markup=main_menu_markup,
+                reply_markup=get_main_menu(user_id),
             )
         return
 
@@ -185,13 +235,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.clear()
         await update.message.reply_text(
             build_about_text(),
-            reply_markup=main_menu_markup,
+            reply_markup=get_main_menu(user_id),
         )
         return
 
     await update.message.reply_text(
-        "Используйте кнопки меню ниже.",
-        reply_markup=main_menu_markup,
+        "Используйте кнопки ниже.",
+        reply_markup=get_main_menu(user_id),
     )
 
 
@@ -206,29 +256,19 @@ async def handle_all_callbacks(update: Update, context: ContextTypes.DEFAULT_TYP
     user = update.effective_user
     user_id = user.id if user else "unknown"
 
-    # Кнопка с финала бесплатного блока
+    # Финал бесплатного блока -> оплата / пространство
     if data in ("full_profile_info", "buy_full_code"):
         if has_paid_access(user_id):
-            from flows.paid_block.paid_space_flow import send_entry_screen as send_paid_space_entry
-            await send_paid_space_entry(update, context)
+            await update.effective_chat.send_message(
+                "Доступ к пространству уже открыт. Выбери, с чем хочешь поработать сегодня.",
+                reply_markup=get_space_menu_keyboard(),
+            )
         else:
             await send_deep_profile_invoice(update, context)
         return
 
-    # Новый блок 2: пространство
-    if data in (
-        "paid_space_entry",
-        "paid_space_menu",
-        "tool_hellinger",
-        "tool_mac",
-        "tool_taro",
-        "tool_balance",
-        "tool_roles",
-        "tool_schema",
-        "tool_ifs",
-        "about_space",
-        "back_to_space",
-    ):
+    # Новый блок 2
+    if data in ("open_space",):
         await handle_paid_callback(update, context)
         return
 
