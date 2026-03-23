@@ -1,66 +1,51 @@
-from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import ReplyKeyboardMarkup
+
+SPACE_MENU_ROWS = [
+    ["🌿 Расстановки (Берт Хеллингер)"],
+    ["🃏 Метафорические карты (МАК)"],
+    ["🔮 ТАРО (полный расклад)"],
+    ["⚖️ Колесо баланса"],
+    ["🔺 Роли в отношениях (Треугольник Карпмана)"],
+    ["🧠 Схематерапия (Джеффри Янг)"],
+    ["🎭 Внутренние семейные системы IFS (Ричард Шварц)"],
+    ["ℹ️ О пространстве"],
+    ["🔄 Назад"],
+]
 
 
-# ====== КНОПКИ ======
-
-def entry_keyboard():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("👉 Перейти в пространство", callback_data="paid_space_entry")]
-    ])
-
-
-def about_keyboard():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Начать", callback_data="paid_space_menu")]
-    ])
+SPACE_TOOL_NAMES = {
+    "🌿 Расстановки (Берт Хеллингер)",
+    "🃏 Метафорические карты (МАК)",
+    "🔮 ТАРО (полный расклад)",
+    "⚖️ Колесо баланса",
+    "🔺 Роли в отношениях (Треугольник Карпмана)",
+    "🧠 Схематерапия (Джеффри Янг)",
+    "🎭 Внутренние семейные системы IFS (Ричард Шварц)",
+}
 
 
-def menu_keyboard():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🌿 Расстановка (Хеллингер)", callback_data="tool_hellinger")],
-        [InlineKeyboardButton("🃏 Метафорические карты", callback_data="tool_mac")],
-        [InlineKeyboardButton("🔮 Таро", callback_data="tool_taro")],
-        [InlineKeyboardButton("⚖️ Колесо баланса", callback_data="tool_balance")],
-        [InlineKeyboardButton("🔺 Роли в отношениях", callback_data="tool_roles")],
-        [InlineKeyboardButton("🧠 Схемотерапия", callback_data="tool_schema")],
-        [InlineKeyboardButton("🎭 Внутренний диалог", callback_data="tool_ifs")],
-        [InlineKeyboardButton("ℹ️ О пространстве", callback_data="about_space")],
-        [InlineKeyboardButton("🔄 Вернуться назад", callback_data="back_to_space")],
-    ])
-
-
-def back_keyboard():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔄 Вернуться в пространство", callback_data="paid_space_menu")]
-    ])
-
-
-# ====== ЭКРАНЫ ======
-
-async def send_entry_screen(update, context):
-    text = (
-        "Ты внутри.\n\n"
-        "Теперь у тебя есть доступ к пространству самопознания.\n\n"
-        "Здесь ты можешь исследовать себя разными способами:\n"
-        "— через практику\n"
-        "— через образы\n"
-        "— через расклады\n"
-        "— через внутренние состояния\n\n"
-        "👉 Выбери, с чего начать сегодня."
-    )
-
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=text,
-        reply_markup=entry_keyboard(),
+def get_space_menu_keyboard():
+    return ReplyKeyboardMarkup(
+        SPACE_MENU_ROWS,
+        resize_keyboard=True,
     )
 
 
-async def send_about_screen(update, context):
+def is_space_tool_text(text: str) -> bool:
+    return text in SPACE_TOOL_NAMES
+
+
+async def send_space_menu_text(update, context):
+    await update.message.reply_text(
+        "Выбери, с чем хочешь поработать сегодня:",
+        reply_markup=get_space_menu_keyboard(),
+    )
+
+
+async def send_about_space(update, context):
     text = (
         "Привет. Меня зовут Наташа.\n\n"
-        "Я психолог и работаю в интегративном подходе.\n"
-        "Это значит, что я не разделяю методы, а соединяю их — чтобы видеть человека целостно и работать глубже.\n\n"
+        "Я психолог и работаю в интегративном подходе. Это значит, что я не разделяю методы, а соединяю их — чтобы видеть человека целостно и работать глубже.\n\n"
         "Тебе не нужно больше бегать по разным специалистам в поисках ответов.\n\n"
         "Я собрала в одном месте инструменты, через которые ты можешь увидеть:\n"
         "1. что с тобой происходит;\n"
@@ -76,37 +61,24 @@ async def send_about_screen(update, context):
         "— схемы\n"
         "— роли\n"
         "— внутренние части\n\n"
-        "Здесь можно быть в контакте с собой каждый день.\n"
-        "Потому что жизнь — это исследование себя.\n\n"
-        "Это пространство создано для твоего самопознания,\n"
-        "в которое можно возвращаться снова и снова."
+        "Здесь можно быть в контакте с собой каждый день. Потому что жизнь — это исследование себя.\n\n"
+        "Это пространство создано для твоего самопознания, в которое можно возвращаться снова и снова."
     )
 
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=text,
-        reply_markup=about_keyboard(),
+    await update.message.reply_text(
+        text,
+        reply_markup=get_space_menu_keyboard(),
     )
 
 
-async def send_menu(update, context):
-    text = "Выбери, с чем хочешь поработать сегодня:"
-
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=text,
-        reply_markup=menu_keyboard(),
-    )
-
-
-async def send_tool_stub(update, context):
+async def send_tool_stub(update, context, tool_name: str):
     text = (
-        "Этот инструмент сейчас в разработке.\n\n"
+        f"{tool_name}\n\n"
+        "Этот инструмент сейчас в разработке.\n"
         "Он скоро станет доступен."
     )
 
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=text,
-        reply_markup=back_keyboard(),
+    await update.message.reply_text(
+        text,
+        reply_markup=get_space_menu_keyboard(),
     )
