@@ -57,14 +57,18 @@ def ensure_user_profile(user_id):
     return data
 
 
-def save_user_result(user_id, test_key, title, result_text, profile_payload=None):
+def save_user_result(user_id, test_key, title=None, result_text=None, profile_payload=None):
     data = ensure_user_profile(user_id)
     user_id = str(user_id)
     profile_payload = profile_payload or {}
 
+    # 💥 защита от падения
+    if "results" not in data[user_id]:
+        data[user_id]["results"] = {}
+
     data[user_id]["results"][test_key] = {
-        "title": title,
-        "result_text": result_text,
+        "title": title or "",
+        "result_text": result_text or "",
         "profile_payload": profile_payload,
         "saved_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
     }
