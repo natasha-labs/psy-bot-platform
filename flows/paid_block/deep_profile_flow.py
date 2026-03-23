@@ -28,15 +28,14 @@ def get_final_keyboard():
 
 def build_paid_question_text(question: dict, index: int, total: int) -> str:
     return (
-        f"*Глубокий профиль*\n"
+        f"Глубокий профиль\n"
         f"Вопрос {index + 1} / {total}\n\n"
-        f"*{question['text']}*"
+        f"{question['text']}"
     )
 
 
 async def start_deep_profile(update, context):
-    user = update.effective_user
-    user_id = user.id if user else "unknown"
+    user_id = update.effective_user.id
 
     if not has_paid_access(user_id):
         await context.bot.send_message(
@@ -61,7 +60,6 @@ async def send_paid_question(update, context, index: int):
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=build_paid_question_text(question, index, len(questions)),
-        parse_mode="Markdown",
         reply_markup=get_paid_question_keyboard(question["options"]),
     )
 
@@ -81,38 +79,17 @@ async def handle_paid_callback(update, context):
     await query.answer()
 
     data = query.data
-    user = update.effective_user
-    user_id = user.id if user else "unknown"
+    user_id = update.effective_user.id
 
     if data == "paid_start":
-        try:
-            await query.edit_message_reply_markup(reply_markup=None)
-        except Exception:
-            pass
-        await start_deep_profile(update, context)
-        return
-
-    if data == "paid_start_deep_profile":
-        try:
-            await query.edit_message_reply_markup(reply_markup=None)
-        except Exception:
-            pass
         await start_deep_profile(update, context)
         return
 
     if data == "paid_restart":
-        try:
-            await query.edit_message_reply_markup(reply_markup=None)
-        except Exception:
-            pass
         await start_deep_profile(update, context)
         return
 
     if data == "paid_back":
-        try:
-            await query.edit_message_reply_markup(reply_markup=None)
-        except Exception:
-            pass
         from flows.paid_block.paid_entry import send_paid_entry
         await send_paid_entry(update, context)
         return
@@ -120,51 +97,31 @@ async def handle_paid_callback(update, context):
     if data == "paid_daily_work":
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Переход к ежедневной работе с собой будет следующим модулем.",
+            text="Блок ежедневной работы будет следующим этапом.",
         )
         return
 
     if not data.startswith("paid_ans:"):
         return
 
-    if not has_paid_access(user_id):
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="Нет доступа ко второму блоку. Сначала нужна оплата.",
-        )
-        return
-
     index = context.user_data.get("paid_index", 0)
     questions = TEST_DEF["questions"]
-
-    if index >= len(questions):
-        return
 
     question = questions[index]
     option_index = int(data.split(":")[1])
     option = question["options"][option_index]
 
-    try:
-        await query.edit_message_text(
-            text=f"{question['text']}\n✅ {option['text']}",
-        )
-    except Exception:
-        pass
-
-    context.user_data["paid_answers"].append(
-        {
-            "question_id": question["id"],
-            "question_text": question["text"],
-            "option_text": option["text"],
-            "value": option["value"],
-        }
+    await query.edit_message_text(
+        text=f"{question['text']}\n\n✅ {option['text']}"
     )
 
+    context.user_data["paid_answers"].append(option["value"])
     context.user_data["paid_index"] = index + 1
 
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.3)
 
     if context.user_data["paid_index"] >= len(questions):
+
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text="Анализируем твои ответы…",
@@ -172,7 +129,8 @@ async def handle_paid_callback(update, context):
 
         await asyncio.sleep(1.2)
 
-        answers = context.user_data.get("paid_answers", [])
+        answers = context.user_data["paid_answers"]
+
         result_payload = TEST_DEF["build_result"](user_id, answers)
 
         save_deep_profile_result(
@@ -185,9 +143,7 @@ async def handle_paid_callback(update, context):
             behavior_modifier=None,
         )
 
-        context.user_data.pop("paid_test_key", None)
-        context.user_data.pop("paid_index", None)
-        context.user_data.pop("paid_answers", None)
+        context.user_data.clear()
 
         await send_deep_result(update.effective_chat.id, context, result_payload)
         return
