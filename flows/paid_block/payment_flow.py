@@ -23,13 +23,13 @@ async def send_deep_profile_invoice(update, context):
 
     await context.bot.send_invoice(
         chat_id=update.effective_chat.id,
-        title="Полный код личности",
-        description="Углублённый разбор второго блока",
-        payload=f"deep_profile:{user_id}",
+        title="Доступ на 30 дней",
+        description="Пространство самопознания на 30 дней",
+        payload=f"space_access:{user_id}",
         provider_token=PROVIDER_TOKEN,
         currency=PAYMENT_CURRENCY,
-        prices=[LabeledPrice("Полный код личности", PAYMENT_AMOUNT)],
-        start_parameter="deep-profile-access",
+        prices=[LabeledPrice("Доступ на 30 дней", PAYMENT_AMOUNT)],
+        start_parameter="space-access-30-days",
     )
 
 
