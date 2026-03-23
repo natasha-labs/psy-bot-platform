@@ -1,63 +1,175 @@
 import random
 
-PATTERN_RU = {
-    "control": "контроль",
-    "avoid": "уход",
-    "react": "реакция",
-    "analyze": "анализ",
-}
+PRIORITY = ["control", "analyze", "avoid", "react"]
 
-CBT_THOUGHT = {
-    "control": "если не проконтролирую — плохо",
-    "avoid": "лучше не лезть",
-    "react": "надо сразу",
-    "analyze": "надо всё обдумать",
-}
+def resolve_patterns(scores):
+    sorted_patterns = sorted(
+        scores.items(),
+        key=lambda x: (x[1], -PRIORITY.index(x[0])),
+        reverse=True
+    )
+    return sorted_patterns[0][0], sorted_patterns[1][0]
 
-DISTORTION = {
-    "control": "гиперконтроль",
-    "avoid": "избегание",
-    "react": "импульс",
-    "analyze": "зацикливание",
-}
+def map_pattern(p):
+    return {
+        "control": "контроль",
+        "avoid": "уход",
+        "react": "реакция",
+        "analyze": "анализ"
+    }[p]
 
-MANIFESTATIONS = {
-    "control": ["держишь внутри", "не проговариваешь", "перегружаешься"],
-    "avoid": ["откладываешь решения", "уходишь", "не проговариваешь"],
-    "react": ["всплески", "перегружаешься", "не проговариваешь"],
-    "analyze": ["возвращаешься к мыслям", "перегружаешься", "откладываешь решения"],
-}
+def build_deep_result(answers, context):
 
+    scores = {
+        "control": 0,
+        "avoid": 0,
+        "react": 0,
+        "analyze": 0
+    }
 
-def build_deep_result(main_pattern, second_pattern, archetype):
-    def block1():
-        variants = [
-            f"Ты используешь стратегию — {PATTERN_RU[main_pattern]}. Это создаёт повторяющийся цикл.",
-            f"В напряжении включается {PATTERN_RU[main_pattern]}, и ситуация не решается."
-        ]
-        return random.choice(variants)
+    for a in answers:
+        scores[a] += 1
 
-    def block2():
-        return f"Снаружи ты — {archetype}, внутри — {PATTERN_RU[second_pattern]}."
+    main, second = resolve_patterns(scores)
 
-    def block3():
-        items = MANIFESTATIONS[main_pattern][:3]
-        return "\n".join([f"— {i}" for i in items])
+    main_ru = map_pattern(main)
+    second_ru = map_pattern(second)
 
-    def block4():
-        return f"{CBT_THOUGHT[main_pattern]}\nИскажение: {DISTORTION[main_pattern]}"
+    archetype = context.user_data.get("archetype", "Лидер")
 
-    def block5():
-        return "Твоя точка — момент до реакции. У тебя есть 1–3 секунды."
+    # --- CBT ---
+    cbt_map = {
+        "control": ("если не проконтролирую — будет плохо", "гиперконтроль"),
+        "avoid": ("лучше не лезть", "избегание"),
+        "react": ("надо сразу реагировать", "импульс"),
+        "analyze": ("нужно всё обдумать", "зацикливание")
+    }
 
-    def block6():
-        return f"Сегодня заметишь → {PATTERN_RU[main_pattern]}"
+    cbt_thought, distortion = cbt_map[main]
 
-    def block7():
-        return "Это сценарий. И ты его увидел."
+    # --- ВАРИАНТЫ ---
+    v = random.choice([1, 2])
+
+    # --- MESSAGE 1 ---
+    if v == 1:
+        block1 = f"""Ты не просто используешь стратегию — {main_ru}.
+
+👉 Ты живёшь через неё.
+
+Когда появляется напряжение,
+ты не идёшь в решение ситуации.
+
+Ты сначала пытаешься справиться с состоянием:
+
+— удержать
+— не показать
+— проконтролировать
+— разобраться внутри
+
+👉 ситуация остаётся
+👉 напряжение возвращается
+
+И именно поэтому ты можешь ощущать,
+что понимаешь всё —
+но действуешь по привычному сценарию."""
+    else:
+        block1 = f"""В напряжённых ситуациях ты не идёшь в прямое действие.
+
+Сначала включается реакция — {main_ru}.
+
+Она снижает напряжение,
+но не решает ситуацию.
+
+Ты попадаешь в цикл.
+
+И даже понимая это —
+в моменте всё равно действуешь автоматически."""
+
+    if v == 1:
+        block2 = f"""Снаружи ты — {archetype}.
+
+Но внутри включается — {second_ru}.
+
+Одна часть движется вперёд.
+Другая тормозит.
+
+👉 Это и создаёт напряжение."""
+    else:
+        block2 = f"""Ты воспринимаешь себя как {archetype}.
+
+Но внутри работает — {second_ru}.
+
+Он не даёт тебе действовать свободно.
+
+👉 Так появляется внутренний конфликт."""
+
+    part1 = block1 + "\n\n" + block2
+
+    # --- MESSAGE 2 ---
+    manifestations = [
+        "откладываешь решения",
+        "возвращаешься к мыслям",
+        "не проговариваешь",
+        "держишь внутри",
+        "перегружаешься",
+        "уходишь"
+    ]
+
+    selected = manifestations[:3] + [manifestations[-1]]
+
+    part2 = (
+        "Ты это уже видел(а) у себя.\n\n"
+        + "\n".join([f"— {m}" for m in selected])
+        + "\n\nЭто повторяется:\n"
+        "— в решениях\n— в разговорах\n— в отношениях\n— в напряжении\n\n"
+        f"👉 {cbt_thought}\n"
+        f"👉 {distortion}\n\n"
+        "Ты реагируешь не на ситуацию,\nа на её интерпретацию."
+    )
+
+    # --- MESSAGE 3 ---
+    part3 = f"""Самое важное — момент до реакции.
+
+👉 1–3 секунды
+
+Где включается — {main_ru}
+
+Большинство людей пропускают это.
+
+И поэтому ничего не меняется.
+
+Сегодня ты это заметишь.
+
+👉 {main_ru}
+
+Задай вопрос:
+
+👉 я реагирую или выбираю?
+
+Это не характер.
+
+👉 Это механизм."""
+
+    # --- MESSAGE 4 ---
+    part4 = """Ты сейчас увидел свой механизм.
+
+Но он будет включаться снова.
+
+И одного понимания недостаточно.
+
+В следующем уровне ты сможешь:
+
+— работать с реакциями
+— ловить момент
+— менять поведение
+
+👉 Это уже работа с собой.
+
+"""
 
     return {
-        "part1": f"{block1()}\n\n{block2()}",
-        "part2": f"{block3()}\n\n{block4()}",
-        "part3": f"{block5()}\n\n{block6()}\n\n{block7()}",
+        "part1": part1,
+        "part2": part2,
+        "part3": part3,
+        "part4": part4
     }
