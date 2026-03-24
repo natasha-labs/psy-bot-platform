@@ -31,7 +31,6 @@ from storage.results_store import (
     get_user_results,
     delete_user_results,
     get_user_profile,
-    set_paid_access,
     reset_user_progress,
 )
 
@@ -69,8 +68,6 @@ def get_main_menu(user_id):
     if is_admin(user_id):
         menu.append(["QA: открыть пространство"])
         menu.append(["Сбросить мои тесты"])
-        menu.append(["Выдать платный доступ"])
-        menu.append(["Забрать платный доступ"])
 
     return ReplyKeyboardMarkup(menu, resize_keyboard=True)
 
@@ -125,19 +122,19 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     text = (
-    "Привет. Меня зовут Наташа. Я психолог и работаю в интегративном подходе.\n\n"
-    "Внутри тебя есть система, которая управляет твоими мыслями:\n\n"
-    "1. что с тобой происходит и как ты реагируешь\n"
-    "2. какие сценарии повторяешь\n"
-    "3. где ты теряешь себя\n"
-    "4. куда уходит энергия\n"
-    "5. как это менять\n\n"
-    "Я не работаю по одному методу.\n"
-    "Я собрала систему, которая показывает человека целиком и помогает ему находить лучшие решения.\n\n"
-    "Тебе не нужно больше искать ответы в разных местах. В этом приложении ты найдёшь всё, что поможет тебе каждый день справляться.\n\n"
-    "Начнём с быстрого входа.\n\n"
-    "Это займёт 2–3 минуты и покажет базовую картину."
-)
+        "Привет. Меня зовут Наташа. Я психолог и работаю в интегративном подходе.\n\n"
+        "Внутри тебя есть система, которая управляет твоими мыслями:\n\n"
+        "1. что с тобой происходит и как ты реагируешь\n"
+        "2. какие сценарии повторяешь\n"
+        "3. где ты теряешь себя\n"
+        "4. куда уходит энергия\n"
+        "5. как это менять\n\n"
+        "Я не работаю по одному методу.\n"
+        "Я собрала систему, которая показывает человека целиком и помогает ему находить лучшие решения.\n\n"
+        "Тебе не нужно больше искать ответы в разных местах. В этом приложении ты найдёшь всё, что поможет тебе каждый день справляться.\n\n"
+        "Начнём с быстрого входа.\n\n"
+        "Это займёт 2–3 минуты и покажет базовую картину."
+    )
 
     await update.message.reply_text(
         text,
@@ -186,35 +183,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    if text == "Выдать платный доступ":
-        if is_admin(user_id):
-            set_paid_access(user_id, True)
-            await update.message.reply_text(
-                "Платный доступ выдан.",
-                reply_markup=get_main_menu(user_id),
-            )
-        return
-
-    if text == "Забрать платный доступ":
-        if is_admin(user_id):
-            set_paid_access(user_id, False)
-            await update.message.reply_text(
-                "Платный доступ снят.",
-                reply_markup=get_main_menu(user_id),
-            )
-        return
-
     if text == "QA: открыть пространство":
-    if not is_admin(user_id):
-        await update.message.reply_text(
-            "Эта функция доступна только админу.",
-            reply_markup=get_main_menu(user_id),
-        )
-        return
+        if not is_admin(user_id):
+            await update.message.reply_text(
+                "Эта функция доступна только админу.",
+                reply_markup=main_menu_markup,
+            )
+            return
 
-        set_paid_access(user_id, True)
         await update.message.reply_text(
-            "Доступ к пространству уже открыт. Выбери, с чем хочешь поработать сегодня.",
+            "Доступ к пространству открыт.",
             reply_markup=get_space_menu_keyboard(user_id),
         )
         return
@@ -274,21 +252,24 @@ async def handle_all_callbacks(update: Update, context: ContextTypes.DEFAULT_TYP
 
     if data in ("full_profile_info", "buy_full_code"):
         if is_admin(user_id):
-        set_paid_access(user_id, True)
-        await update.effective_chat.send_message(
-            "QA доступ включён.",
-            reply_markup=get_space_menu_keyboard(user_id),
-        )
+            await update.effective_chat.send_message(
+                "QA доступ включён.",
+                reply_markup=get_space_menu_keyboard(user_id),
+            )
+            return
+
+        if has_paid_access(user_id):
+            await update.effective_chat.send_message(
+                "Доступ уже открыт.",
+                reply_markup=get_space_menu_keyboard(user_id),
+            )
+        else:
+            await send_deep_profile_invoice(update, context)
         return
 
-    if has_paid_access(user_id):
-        await update.effective_chat.send_message(
-            "Доступ уже открыт.",
-            reply_markup=get_space_menu_keyboard(user_id),
-        )
-    else:
-        await send_deep_profile_invoice(update, context)
-    return
+    if data in ("open_space",):
+        await handle_paid_callback(update, context)
+        return
 
     main_menu_markup = get_main_menu(user_id)
     await handle_free_callback(update, context, main_menu_markup, TESTS)
