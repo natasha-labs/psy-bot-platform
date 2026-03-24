@@ -79,25 +79,7 @@ def build_question_text(title: str, total: int, index: int, question_text: str) 
 
 
 async def send_entry_screen(update, context, main_menu_markup):
-    text = (
-        "Ты думаешь, что понимаешь себя.\n\n"
-        "Но решения, реакции и выборы часто происходят автоматически.\n\n"
-        "Внутри тебя есть система, которая управляет этим:\n"
-        "— как ты реагируешь\n"
-        "— что чувствуешь\n"
-        "— какие сценарии повторяешь\n\n"
-        "Мы собрали короткие тесты, которые покажут твой внутренний код.\n\n"
-        "Это займёт 2–3 минуты."
-    )
-
-    if update.message:
-        await update.message.reply_text(text, reply_markup=get_entry_keyboard())
-    elif update.callback_query:
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=text,
-            reply_markup=get_entry_keyboard(),
-        )
+    await send_test_selection_screen(update, context)
 
 
 async def send_test_selection_screen(update, context, results=None):
@@ -105,7 +87,7 @@ async def send_test_selection_screen(update, context, results=None):
     if results is not None:
         available = get_remaining_tests(results)
 
-    text = "Выбери, с чего начать:"
+    text = "Остался последний тест:"
 
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
