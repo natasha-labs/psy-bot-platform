@@ -273,18 +273,22 @@ async def handle_all_callbacks(update: Update, context: ContextTypes.DEFAULT_TYP
     user_id = user.id if user else "unknown"
 
     if data in ("full_profile_info", "buy_full_code"):
-        if has_paid_access(user_id):
-            await update.effective_chat.send_message(
-                "Доступ к пространству уже открыт. Выбери, с чем хочешь поработать сегодня.",
-                reply_markup=get_space_menu_keyboard(user_id),
-            )
-        else:
-            await send_deep_profile_invoice(update, context)
+    if is_admin(user_id):
+        set_paid_access(user_id, True)
+        await update.effective_chat.send_message(
+            "QA доступ включён.",
+            reply_markup=get_space_menu_keyboard(user_id),
+        )
         return
 
-    if data in ("open_space",):
-        await handle_paid_callback(update, context)
-        return
+    if has_paid_access(user_id):
+        await update.effective_chat.send_message(
+            "Доступ уже открыт.",
+            reply_markup=get_space_menu_keyboard(user_id),
+        )
+    else:
+        await send_deep_profile_invoice(update, context)
+    return
 
     main_menu_markup = get_main_menu(user_id)
     await handle_free_callback(update, context, main_menu_markup, TESTS)
