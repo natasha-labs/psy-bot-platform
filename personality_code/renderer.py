@@ -1,35 +1,34 @@
-def _normalize_anxiety_label(value: str) -> str:
-    mapping = {
-        "Низкий": "Низкий уровень внутреннего напряжения",
-        "Умеренный": "Умеренный уровень внутреннего напряжения",
-        "Высокий": "Высокий уровень внутреннего напряжения",
-        "Очень высокий": "Очень высокий уровень внутреннего напряжения",
-        "низкий": "Низкий уровень внутреннего напряжения",
-        "умеренный": "Умеренный уровень внутреннего напряжения",
-        "высокий": "Высокий уровень внутреннего напряжения",
-        "очень высокий": "Очень высокий уровень внутреннего напряжения",
-    }
-    return mapping.get(value, value or "—")
-
-
 def render_basic_personality_code(payload: dict) -> str:
-    main_type = payload.get("main_type") or "—"
-    shadow_type = payload.get("shadow_type") or "—"
-    anxiety_raw = payload.get("anxiety_type") or "—"
-    anxiety_label = _normalize_anxiety_label(anxiety_raw)
+    main_label = (
+        payload.get("main_label")
+        or payload.get("archetype_label")
+        or payload.get("archetype_type")
+        or payload.get("main_type")
+        or "—"
+    )
+
+    hidden_label = (
+        payload.get("hidden_label")
+        or payload.get("shadow_label")
+        or payload.get("shadow_type")
+        or payload.get("secondary_label")
+        or "—"
+    )
+
+    current_label = (
+        payload.get("current_label")
+        or payload.get("anxiety_label")
+        or payload.get("anxiety_type")
+        or payload.get("state_label")
+        or "—"
+    )
 
     return (
         "✨ *Ваш базовый код личности*\n\n"
-        f"🔹 Кто вы в основе — *{main_type}*\n"
-        f"🔹 Что скрыто — *{shadow_type}*\n"
-        f"🔹 Что влияет сейчас — *{anxiety_label}*\n\n"
-        f"Снаружи вы чаще проявляетесь через тип *«{main_type}»*.\n\n"
-        f"Скрытый слой связан с темой *«{shadow_type}»*, "
-        "и именно он может ограничивать, сдерживать или искажать ваши реакции.\n\n"
-        f"Сейчас это усиливается состоянием *«{anxiety_label}»*.\n\n"
-        "Полный разбор покажет:\n"
-        "— почему вы выбираете определённых партнёров\n"
-        "— какие реакции управляют вами\n"
-        "— где вы теряете энергию\n"
-        "— как это изменить"
+        f"🔹 Кто вы в основе — *{main_label}*\n"
+        f"🔹 Что скрыто — *{hidden_label}*\n"
+        f"🔹 Что влияет сейчас — *{current_label}*\n\n"
+        f"Снаружи вы чаще проявляетесь через тип *«{main_label}»*.\n\n"
+        f"Скрытый слой связан с темой *«{hidden_label}»*, и именно он может ограничивать, сдерживать или искажать ваши реакции.\n\n"
+        f"Сейчас это усиливается состоянием *«{current_label}»*."
     )
