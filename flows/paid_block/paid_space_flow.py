@@ -1,17 +1,6 @@
 from telegram import ReplyKeyboardMarkup
 
-SPACE_MENU_ROWS = [
-    ["🌿 Расстановки (Берт Хеллингер)"],
-    ["🃏 Метафорические карты (МАК)"],
-    ["🔮 ТАРО (полный расклад)"],
-    ["⚖️ Колесо баланса"],
-    ["🔺 Роли в отношениях (Треугольник Карпмана)"],
-    ["🧠 Схематерапия (Джеффри Янг)"],
-    ["🎭 Внутренние семейные системы IFS (Ричард Шварц)"],
-    ["ℹ️ О пространстве"],
-    ["🔄 Назад"],
-]
-
+ADMIN_ID = 5750354905
 
 SPACE_TOOL_NAMES = {
     "🌿 Расстановки (Берт Хеллингер)",
@@ -24,11 +13,24 @@ SPACE_TOOL_NAMES = {
 }
 
 
-def get_space_menu_keyboard():
-    return ReplyKeyboardMarkup(
-        SPACE_MENU_ROWS,
-        resize_keyboard=True,
-    )
+def is_admin(user_id) -> bool:
+    return str(user_id) == str(ADMIN_ID)
+
+
+def get_space_menu_keyboard(user_id=None):
+    rows = [
+        ["🌿 Расстановки (Берт Хеллингер)", "🃏 Метафорические карты (МАК)"],
+        ["🔮 ТАРО (полный расклад)", "⚖️ Колесо баланса"],
+        ["🔺 Роли в отношениях (Треугольник Карпмана)", "🧠 Схематерапия (Джеффри Янг)"],
+        ["🎭 Внутренние семейные системы IFS (Ричард Шварц)", "ℹ️ О пространстве"],
+        ["🔄 Назад"],
+    ]
+
+    if user_id is not None and is_admin(user_id):
+        rows.append(["Сбросить мои тесты", "QA: открыть пространство"])
+        rows.append(["Выдать платный доступ", "Забрать платный доступ"])
+
+    return ReplyKeyboardMarkup(rows, resize_keyboard=True)
 
 
 def is_space_tool_text(text: str) -> bool:
@@ -36,13 +38,19 @@ def is_space_tool_text(text: str) -> bool:
 
 
 async def send_space_menu_text(update, context):
+    user = update.effective_user
+    user_id = user.id if user else None
+
     await update.message.reply_text(
         "Выбери, с чем хочешь поработать сегодня:",
-        reply_markup=get_space_menu_keyboard(),
+        reply_markup=get_space_menu_keyboard(user_id),
     )
 
 
 async def send_about_space(update, context):
+    user = update.effective_user
+    user_id = user.id if user else None
+
     text = (
         "Привет. Меня зовут Наташа.\n\n"
         "Я психолог и работаю в интегративном подходе. Это значит, что я не разделяю методы, а соединяю их — чтобы видеть человека целостно и работать глубже.\n\n"
@@ -67,11 +75,14 @@ async def send_about_space(update, context):
 
     await update.message.reply_text(
         text,
-        reply_markup=get_space_menu_keyboard(),
+        reply_markup=get_space_menu_keyboard(user_id),
     )
 
 
 async def send_tool_stub(update, context, tool_name: str):
+    user = update.effective_user
+    user_id = user.id if user else None
+
     text = (
         f"{tool_name}\n\n"
         "Этот инструмент сейчас в разработке.\n"
@@ -80,5 +91,5 @@ async def send_tool_stub(update, context, tool_name: str):
 
     await update.message.reply_text(
         text,
-        reply_markup=get_space_menu_keyboard(),
+        reply_markup=get_space_menu_keyboard(user_id),
     )
