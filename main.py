@@ -1,4 +1,5 @@
 import os
+import time
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
@@ -31,10 +32,13 @@ from storage.results_store import (
     delete_user_results,
     get_user_profile,
     set_paid_access,
+    reset_user_progress,
 )
 
 TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = 5750354905
+START_DEBOUNCE_SECONDS = 2.5
+RECENT_STARTS = {}
 
 if not TOKEN:
     raise RuntimeError("BOT_TOKEN is not set")
@@ -94,14 +98,24 @@ def build_about_text() -> str:
     return "Это система психологических тестов: быстрый вход и пространство для дальнейшей работы с собой."
 
 
+def should_ignore_duplicate_start(user_id) -> bool:
+    now = time.time()
+    user_id = str(user_id)
+    last = RECENT_STARTS.get(user_id, 0)
+    RECENT_STARTS[user_id] = now
+    return (now - last) < START_DEBOUNCE_SECONDS
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
 
     user = update.effective_user
     user_id = user.id if user else "unknown"
 
-    # ВРЕМЕННО: каждый /start обнуляет результаты пользователя
-    delete_user_results(user_id)
+    if should_ignore_duplicate_start(user_id):
+        return
+
+    reset_user_progress(user_id)
 
     if has_paid_access(user_id):
         await update.message.reply_text(
@@ -122,11 +136,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "5. как это менять\n\n"
         "👉 Начнём с быстрого входа.\n\n"
         "Это займёт 2–3 минуты и покажет базовую картину."
-    )
-
-    await update.message.reply_text(
-        text,
-        reply_markup=START_KEYBOARD,
     )
 
     await update.message.reply_text(
@@ -210,15 +219,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if text == "Начать":
-        # ВРЕМЕННО: новый старт = новый пользовательский проход
-        delete_user_results(user_id)
+        reset_user_progress(user_id)
         context.user_data.clear()
         await send_entry_screen(update, context, get_main_menu(user_id))
         return
 
     if text == "Начать исследование":
-        # ВРЕМЕННО: каждый новый запуск исследования обнуляет прошлый проход
-        delete_user_results(user_id)
+        reset_user_progress(user_id)
         context.user_data.clear()
         await send_entry_screen(update, context, get_main_menu(user_id))
         return
