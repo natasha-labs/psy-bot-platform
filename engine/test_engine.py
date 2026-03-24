@@ -1,9 +1,6 @@
 import asyncio
 import random
-from telegram import (
-    InlineKeyboardMarkup,
-    InlineKeyboardButton,
-)
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
 from storage.results_store import save_user_result, get_user_results
 from personality_code.aggregator import (
@@ -11,9 +8,7 @@ from personality_code.aggregator import (
     build_basic_personality_code,
 )
 from personality_code.renderer import render_basic_personality_code
-from personality_code.upsell_screen import (
-    get_learn_more_keyboard,
-)
+from personality_code.upsell_screen import get_learn_more_keyboard
 
 TEST_ORDER = ["anxiety", "archetype", "shadow"]
 
@@ -148,6 +143,7 @@ async def send_post_result_flow(update, context, main_menu_markup, test_def, res
     results = get_user_results(user_id)
     remaining = get_remaining_tests(results)
 
+    # После 1 и 2 теста
     if remaining:
         await context.bot.send_message(
             chat_id=chat_id,
@@ -162,30 +158,31 @@ async def send_post_result_flow(update, context, main_menu_markup, test_def, res
         )
         return
 
+    # После 3 тестов
     if enough_for_basic_personality_code(results):
-    # 🔥 сначала показываем результат последнего теста
-    await context.bot.send_message(
-        chat_id=chat_id,
-        text=result_text,
-        parse_mode="Markdown",
-    )
+        # Сначала показываем результат последнего теста
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=result_text,
+            parse_mode="Markdown",
+        )
 
-    payload = build_basic_personality_code(results)
-    code_text = render_basic_personality_code(payload)
+        payload = build_basic_personality_code(results)
+        code_text = render_basic_personality_code(payload)
 
-    final_text = (
-        f"{code_text}\n\n"
-        "Ты увидел только верхний слой.\n\n"
-        "А дальше начинается то, ради чего сюда приходят — пространство для самоисследования."
-    )
+        final_text = (
+            f"{code_text}\n\n"
+            "Ты увидел только верхний слой.\n\n"
+            "А дальше начинается то, ради чего сюда приходят — пространство для самоисследования."
+        )
 
-    await context.bot.send_message(
-        chat_id=chat_id,
-        text=final_text,
-        parse_mode="Markdown",
-        reply_markup=get_learn_more_keyboard(),
-    )
-    return
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=final_text,
+            parse_mode="Markdown",
+            reply_markup=get_learn_more_keyboard(),
+        )
+        return
 
     await context.bot.send_message(
         chat_id=chat_id,
@@ -283,7 +280,6 @@ async def handle_callback(update, context, main_menu_markup, tests):
 
     if context.user_data["index"] >= len(questions):
         answer_pairs = context.user_data["answers"]
-
         result_text = test_def["build_result"](answer_pairs)
         profile_payload = test_def["build_profile_payload"](answer_pairs)
 
