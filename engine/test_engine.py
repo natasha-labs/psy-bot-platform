@@ -72,25 +72,34 @@ def build_answered_question_text(question_text: str, answer_text: str) -> str:
 
 
 async def send_entry_screen(update, context, main_menu_markup):
-    await update.message.reply_text(
+    text = (
         "Ты думаешь, что понимаешь себя.\n\n"
-        "Но решения, реакции и выборы\n"
-        "часто происходят автоматически.\n\n"
-        "Внутри тебя есть система,\n"
-        "которая управляет этим:\n\n"
+        "Но решения, реакции и выборы часто происходят автоматически.\n\n"
+        "Внутри тебя есть система, которая управляет этим:\n"
         "— как ты реагируешь\n"
         "— что чувствуешь\n"
         "— какие сценарии повторяешь\n\n"
-        "Мы собрали короткие тесты,\n"
-        "которые покажут твой внутренний код.\n\n"
-        "Это займёт 2–3 минуты.",
-        reply_markup=main_menu_markup,
+        "Мы собрали короткие тесты, которые покажут твой внутренний код.\n\n"
+        "Это займёт 2–3 минуты.\n\n"
+        "Выбери, с чего начать:"
     )
 
-    await update.message.reply_text(
-        "Начать исследование",
-        reply_markup=get_entry_keyboard(),
-    )
+    keyboard = [
+        ["Тревога"],
+        ["Архетип личности"],
+        ["Теневой профиль"],
+    ]
+
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+    if update.message:
+        await update.message.reply_text(text, reply_markup=reply_markup)
+    elif update.callback_query:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=text,
+            reply_markup=reply_markup,
+        )
 
 
 async def send_test_selection_screen(update, context, results=None):
