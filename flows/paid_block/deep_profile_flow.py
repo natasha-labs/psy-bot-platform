@@ -5,6 +5,17 @@ from flows.paid_block.paid_space_flow import (
 )
 
 
+TOOL_LABELS = {
+    "tool_hellinger": "🌿 Расстановки (Берт Хеллингер)",
+    "tool_mac": "🃏 Метафорические карты (МАК)",
+    "tool_taro": "🔮 ТАРО (полный расклад)",
+    "tool_balance": "⚖️ Колесо баланса",
+    "tool_roles": "🔺 Роли в отношениях (Треугольник Карпмана)",
+    "tool_schema": "🧠 Схематерапия (Джеффри Янг)",
+    "tool_ifs": "🎭 Внутренние семейные системы IFS (Ричард Шварц)",
+}
+
+
 async def handle_paid_callback(update, context):
     query = update.callback_query
     if not query:
@@ -13,11 +24,7 @@ async def handle_paid_callback(update, context):
     data = query.data
 
     if data == "open_space":
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="Выбери, с чем хочешь поработать сегодня:",
-            reply_markup=None,
-        )
+        await send_space_menu_text(update, context)
         return
 
     if data == "paid_space_entry":
@@ -25,10 +32,7 @@ async def handle_paid_callback(update, context):
         return
 
     if data == "paid_space_menu":
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="Выбери, с чем хочешь поработать сегодня:",
-        )
+        await send_space_menu_text(update, context)
         return
 
     if data == "about_space":
@@ -36,12 +40,9 @@ async def handle_paid_callback(update, context):
         return
 
     if data == "back_to_space":
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="Выбери, с чем хочешь поработать сегодня:",
-        )
+        await send_space_menu_text(update, context)
         return
 
-    if data.startswith("tool_"):
-        await send_tool_stub(update, context, data)
+    if data in TOOL_LABELS:
+        await send_tool_stub(update, context, TOOL_LABELS[data])
         return
