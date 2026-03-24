@@ -163,22 +163,29 @@ async def send_post_result_flow(update, context, main_menu_markup, test_def, res
         return
 
     if enough_for_basic_personality_code(results):
-        payload = build_basic_personality_code(results)
-        code_text = render_basic_personality_code(payload)
+    # 🔥 сначала показываем результат последнего теста
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=result_text,
+        parse_mode="Markdown",
+    )
 
-        final_text = (
-            f"{code_text}\n\n"
-            "Ты увидел только верхний слой.\n\n"
-            "А дальше начинается то, ради чего сюда приходят — пространство для самоисследования."
-        )
+    payload = build_basic_personality_code(results)
+    code_text = render_basic_personality_code(payload)
 
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=final_text,
-            parse_mode="Markdown",
-            reply_markup=get_learn_more_keyboard(),
-        )
-        return
+    final_text = (
+        f"{code_text}\n\n"
+        "Ты увидел только верхний слой.\n\n"
+        "А дальше начинается то, ради чего сюда приходят — пространство для самоисследования."
+    )
+
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=final_text,
+        parse_mode="Markdown",
+        reply_markup=get_learn_more_keyboard(),
+    )
+    return
 
     await context.bot.send_message(
         chat_id=chat_id,
