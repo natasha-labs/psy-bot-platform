@@ -205,12 +205,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if text == "QA: открыть пространство":
-        if not is_admin(user_id):
-            await update.message.reply_text(
-                "Эта функция доступна только админу.",
-                reply_markup=main_menu_markup,
-            )
-            return
+    if not is_admin(user_id):
+        await update.message.reply_text(
+            "Эта функция доступна только админу.",
+            reply_markup=get_main_menu(user_id),
+        )
+        return
 
         set_paid_access(user_id, True)
         await update.message.reply_text(
