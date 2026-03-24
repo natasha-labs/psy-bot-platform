@@ -3,7 +3,6 @@ import random
 from telegram import (
     InlineKeyboardMarkup,
     InlineKeyboardButton,
-    ReplyKeyboardMarkup,
 )
 
 from storage.results_store import save_user_result, get_user_results
@@ -13,7 +12,6 @@ from personality_code.aggregator import (
 )
 from personality_code.renderer import render_basic_personality_code
 from personality_code.upsell_screen import (
-    get_deep_dive_keyboard,
     get_full_profile_keyboard,
     get_payment_placeholder_text,
 )
@@ -56,14 +54,6 @@ def get_test_selection_keyboard(available_tests=None):
         rows.append([InlineKeyboardButton(mapping[key], callback_data=f"start:{key}")])
 
     return InlineKeyboardMarkup(rows)
-
-
-def get_result_keyboard(test_key: str, button_text: str):
-    return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton(button_text, callback_data=f"offer:{test_key}")]
-        ]
-    )
 
 
 def get_continue_keyboard():
@@ -178,7 +168,6 @@ async def send_post_result_flow(update, context, main_menu_markup, test_def, res
             chat_id=chat_id,
             text=result_text,
             parse_mode="Markdown",
-            reply_markup=get_result_keyboard(test_key, test_def["result_button_text"]),
         )
 
         await context.bot.send_message(
@@ -191,15 +180,12 @@ async def send_post_result_flow(update, context, main_menu_markup, test_def, res
     if enough_for_basic_personality_code(results):
         payload = build_basic_personality_code(results)
         code_text = render_basic_personality_code(payload)
-
-        final_text = (
-            f"{code_text}\n\n"
-            f"{get_payment_placeholder_text()}"
-        )
+        final_text = f"{code_text}\n\n{get_payment_placeholder_text()}"
 
         await context.bot.send_message(
             chat_id=chat_id,
             text=final_text,
+            parse_mode="Markdown",
             reply_markup=get_full_profile_keyboard(),
         )
         return
@@ -254,20 +240,6 @@ async def handle_callback(update, context, main_menu_markup, tests):
         return
 
     if data.startswith("offer:"):
-        test_key = data.split(":", 1)[1]
-        test_def = tests.get(test_key)
-        if not test_def:
-            return
-
-        item = results.get(test_key, {})
-        profile_payload = item.get("profile_payload", {})
-
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=test_def["build_offer_text"](profile_payload),
-            parse_mode="Markdown",
-            reply_markup=get_deep_dive_keyboard(),
-        )
         return
 
     if data == "full_profile_info":
