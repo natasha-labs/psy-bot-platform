@@ -28,33 +28,54 @@ def save_results(data):
     )
 
 
+def _build_empty_profile(user_id, paid_access=False, payment_info=None):
+    return {
+        "user_id": int(user_id) if str(user_id).isdigit() else user_id,
+        "completed_tests": [],
+        "results": {},
+        "paid_access": bool(paid_access),
+        "deep_profile_started": False,
+        "deep_profile_completed": False,
+        "deep_profile_result": None,
+        "primary_pattern": None,
+        "secondary_pattern": None,
+        "behavior_modifier": None,
+        "deep_profile_answers": [],
+        "deep_profile_signals": {},
+        "deep_profile_completed_at": None,
+        "archetype_type": None,
+        "shadow_type": None,
+        "anxiety_type": None,
+        "payment_info": payment_info,
+    }
+
+
 def ensure_user_profile(user_id):
     data = load_results()
     user_id = str(user_id)
 
     if user_id not in data:
-        data[user_id] = {
-            "user_id": int(user_id) if str(user_id).isdigit() else user_id,
-            "completed_tests": [],
-            "results": {},
-            "paid_access": False,
-            "deep_profile_started": False,
-            "deep_profile_completed": False,
-            "deep_profile_result": None,
-            "primary_pattern": None,
-            "secondary_pattern": None,
-            "behavior_modifier": None,
-            "deep_profile_answers": [],
-            "deep_profile_signals": {},
-            "deep_profile_completed_at": None,
-            "archetype_type": None,
-            "shadow_type": None,
-            "anxiety_type": None,
-            "payment_info": None,
-        }
+        data[user_id] = _build_empty_profile(user_id)
         save_results(data)
 
     return data
+
+
+def reset_user_progress(user_id):
+    data = load_results()
+    user_id = str(user_id)
+
+    existing = data.get(user_id, {})
+    paid_access = existing.get("paid_access", False)
+    payment_info = existing.get("payment_info", None)
+
+    data[user_id] = _build_empty_profile(
+        user_id=user_id,
+        paid_access=paid_access,
+        payment_info=payment_info,
+    )
+    save_results(data)
+    return True
 
 
 def save_user_result(user_id, test_key, title=None, result_text=None, profile_payload=None):
@@ -62,7 +83,6 @@ def save_user_result(user_id, test_key, title=None, result_text=None, profile_pa
     user_id = str(user_id)
     profile_payload = profile_payload or {}
 
-    # 💥 защита от падения
     if "results" not in data[user_id]:
         data[user_id]["results"] = {}
 
