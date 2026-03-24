@@ -87,10 +87,10 @@ async def send_test_selection_screen(update, context, results=None):
     if results is not None:
         available = get_remaining_tests(results)
 
-    if available_tests is not None and len(available_tests) == 1:
-    text = "Остался последний тест"
+    if available is not None and len(available) == 1:
+        text = "Остался последний тест"
 else:
-    text = "Выбери, с чего начать:"
+        text = "Выбери, с чего начать:"
 
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
