@@ -137,7 +137,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     results = get_user_results(user_id)
     main_menu_markup = get_main_menu(user_id)
 
-    # ===== ПРОСТРАНСТВО (нижнее меню) =====
+    # ПРОСТРАНСТВО
     if text == "Открыть пространство":
         await send_space_menu_text(update, context)
         return
@@ -154,7 +154,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_tool_stub(update, context, text)
         return
 
-    # ===== АДМИН =====
+    # АДМИН
     if text == "Сбросить мои тесты":
         if not is_admin(user_id):
             await update.message.reply_text(
@@ -205,7 +205,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # ===== БЕСПЛАТНЫЙ БЛОК =====
+    # БЕСПЛАТНЫЙ БЛОК
     if text == "Начать":
         await send_entry_screen(update, context, get_main_menu(user_id))
         return
@@ -269,21 +269,21 @@ async def handle_all_callbacks(update: Update, context: ContextTypes.DEFAULT_TYP
 
     # Новый блок 2
     if data in (
-    "open_space",
-    "paid_space_entry",
-    "paid_space_menu",
-    "tool_hellinger",
-    "tool_mac",
-    "tool_taro",
-    "tool_balance",
-    "tool_roles",
-    "tool_schema",
-    "tool_ifs",
-    "about_space",
-    "back_to_space",
-):
-    await handle_paid_callback(update, context)
-    return
+        "open_space",
+        "paid_space_entry",
+        "paid_space_menu",
+        "tool_hellinger",
+        "tool_mac",
+        "tool_taro",
+        "tool_balance",
+        "tool_roles",
+        "tool_schema",
+        "tool_ifs",
+        "about_space",
+        "back_to_space",
+    ):
+        await handle_paid_callback(update, context)
+        return
 
     # Всё остальное — бесплатный блок
     main_menu_markup = get_main_menu(user_id)
