@@ -3,7 +3,6 @@ from telegram import LabeledPrice
 
 from storage.results_store import set_payment_info
 from flows.paid_block.paid_access import grant_paid_access
-from flows.paid_block.paid_entry import send_paid_entry
 
 PROVIDER_TOKEN = os.getenv("TELEGRAM_PROVIDER_TOKEN", "")
 PAYMENT_CURRENCY = os.getenv("PAYMENT_CURRENCY", "EUR")
@@ -55,4 +54,5 @@ async def handle_successful_payment(update, context):
         },
     )
 
+    from flows.paid_block.paid_entry import send_paid_entry
     await send_paid_entry(update, context)
