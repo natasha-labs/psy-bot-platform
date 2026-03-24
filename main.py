@@ -268,9 +268,22 @@ async def handle_all_callbacks(update: Update, context: ContextTypes.DEFAULT_TYP
         return
 
     # Новый блок 2
-    if data in ("open_space",):
-        await handle_paid_callback(update, context)
-        return
+    if data in (
+    "open_space",
+    "paid_space_entry",
+    "paid_space_menu",
+    "tool_hellinger",
+    "tool_mac",
+    "tool_taro",
+    "tool_balance",
+    "tool_roles",
+    "tool_schema",
+    "tool_ifs",
+    "about_space",
+    "back_to_space",
+):
+    await handle_paid_callback(update, context)
+    return
 
     # Всё остальное — бесплатный блок
     main_menu_markup = get_main_menu(user_id)
