@@ -273,7 +273,7 @@ async def handle_all_callbacks(update: Update, context: ContextTypes.DEFAULT_TYP
     user_id = user.id if user else "unknown"
 
     if data in ("full_profile_info", "buy_full_code"):
-    if is_admin(user_id):
+        if is_admin(user_id):
         set_paid_access(user_id, True)
         await update.effective_chat.send_message(
             "QA доступ включён.",
