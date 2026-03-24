@@ -1,27 +1,11 @@
 def render_basic_personality_code(payload: dict) -> str:
-    main_label = (
-        payload.get("main_label")
-        or payload.get("archetype_label")
-        or payload.get("archetype_type")
-        or payload.get("main_type")
-        or "—"
-    )
+    main_label = payload.get("main_label") or "—"
+    hidden_label = payload.get("hidden_label") or "—"
+    current_label = payload.get("current_label") or "—"
 
-    hidden_label = (
-        payload.get("hidden_label")
-        or payload.get("shadow_label")
-        or payload.get("shadow_type")
-        or payload.get("secondary_label")
-        or "—"
-    )
-
-    current_label = (
-        payload.get("current_label")
-        or payload.get("anxiety_label")
-        or payload.get("anxiety_type")
-        or payload.get("state_label")
-        or "—"
-    )
+    # 🔥 фикс "Высокий" → "Высокий уровень внутреннего напряжения"
+    if current_label.lower() == "высокий":
+        current_label = "Высокий уровень внутреннего напряжения"
 
     return (
         "✨ *Ваш базовый код личности*\n\n"
