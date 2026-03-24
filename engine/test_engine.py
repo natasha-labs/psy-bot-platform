@@ -12,8 +12,7 @@ from personality_code.aggregator import (
 )
 from personality_code.renderer import render_basic_personality_code
 from personality_code.upsell_screen import (
-    get_full_profile_keyboard,
-    get_payment_placeholder_text,
+    get_learn_more_keyboard,
 )
 
 TEST_ORDER = ["anxiety", "archetype", "shadow"]
@@ -166,13 +165,18 @@ async def send_post_result_flow(update, context, main_menu_markup, test_def, res
     if enough_for_basic_personality_code(results):
         payload = build_basic_personality_code(results)
         code_text = render_basic_personality_code(payload)
-        final_text = f"{code_text}\n\n{get_payment_placeholder_text()}"
+
+        final_text = (
+            f"{code_text}\n\n"
+            "Ты увидел только верхний слой.\n\n"
+            "А дальше начинается то, ради чего сюда приходят — пространство для самоисследования."
+        )
 
         await context.bot.send_message(
             chat_id=chat_id,
             text=final_text,
             parse_mode="Markdown",
-            reply_markup=get_full_profile_keyboard(),
+            reply_markup=get_learn_more_keyboard(),
         )
         return
 
@@ -229,11 +233,9 @@ async def handle_callback(update, context, main_menu_markup, tests):
         return
 
     if data == "full_profile_info":
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=get_payment_placeholder_text(),
-            parse_mode="Markdown",
-        )
+        return
+
+    if data == "learn_more":
         return
 
     if not data.startswith("ans:"):
