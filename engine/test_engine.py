@@ -84,12 +84,13 @@ async def send_entry_screen(update, context, main_menu_markup):
 
 async def send_test_selection_screen(update, context, results=None):
     available = None
+
     if results is not None:
         available = get_remaining_tests(results)
 
     if available is not None and len(available) == 1:
         text = "Остался последний тест"
-else:
+    else:
         text = "Выбери, с чего начать:"
 
     await context.bot.send_message(
