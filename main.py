@@ -26,6 +26,10 @@ from flows.paid_block.paid_space_flow import (
     send_tool_stub,
     is_space_tool_text,
 )
+from personality_code.upsell_screen import (
+    get_payment_placeholder_text,
+    get_full_profile_keyboard,
+)
 from tests.registry import TESTS
 from storage.results_store import (
     get_user_results,
@@ -124,11 +128,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
         "Привет. Меня зовут Наташа. Я психолог и работаю в интегративном подходе.\n\n"
         "Внутри тебя есть система, которая управляет твоими мыслями:\n\n"
-        "1. что со мной происходит и как я реагирую\n"
-        "2. какие сценарии повторяю\n"
-        "3. где я теряю себя\n"
+        "1. что с тобой происходит и как ты реагируешь\n"
+        "2. какие сценарии повторяешь\n"
+        "3. где ты теряешь себя\n"
         "4. куда уходит энергия\n"
-        "5. как это можно изменить\n\n"
+        "5. как это менять\n\n"
         "Я не работаю по одному методу.\n"
         "Я собрала систему, которая показывает человека целиком и помогает ему находить лучшие решения.\n\n"
         "Тебе не нужно больше искать ответы в разных местах. В этом приложении ты найдёшь всё, что поможет тебе каждый день справляться.\n\n"
@@ -249,6 +253,13 @@ async def handle_all_callbacks(update: Update, context: ContextTypes.DEFAULT_TYP
 
     user = update.effective_user
     user_id = user.id if user else "unknown"
+
+    if data == "learn_more":
+        await update.effective_chat.send_message(
+            get_payment_placeholder_text(),
+            reply_markup=get_full_profile_keyboard(),
+        )
+        return
 
     if data in ("full_profile_info", "buy_full_code"):
         if is_admin(user_id):
