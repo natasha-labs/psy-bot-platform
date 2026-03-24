@@ -82,9 +82,9 @@ def get_remaining_tests(results):
 def build_question_text(title: str, total: int, index: int, question_text: str) -> str:
     current = index + 1
     return (
-        f"{question_text}\n\n"
         f"*{title}*\n"
-        f"Вопрос {current} / {total}"
+        f"Вопрос {current} / {total}\n\n"
+        f"{question_text}"
     )
 
 
@@ -92,7 +92,7 @@ async def send_entry_screen(update, context, main_menu_markup):
     text = (
         "Ты думаешь, что понимаешь себя.\n\n"
         "Но решения, реакции и выборы часто происходят автоматически.\n\n"
-        "Внутри тебя есть система, которая управляет этим:\n\n"
+        "Внутри тебя есть система, которая управляет этим:\n"
         "— как ты реагируешь\n"
         "— что чувствуешь\n"
         "— какие сценарии повторяешь\n\n"
@@ -101,12 +101,12 @@ async def send_entry_screen(update, context, main_menu_markup):
     )
 
     if update.message:
-        await update.message.reply_text(text, reply_markup=main_menu_markup)
+        await update.message.reply_text(text, reply_markup=get_entry_keyboard())
     elif update.callback_query:
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=text,
-            reply_markup=main_menu_markup,
+            reply_markup=get_entry_keyboard(),
         )
 
 
@@ -173,7 +173,6 @@ async def send_post_result_flow(update, context, main_menu_markup, test_def, res
     results = get_user_results(user_id)
     remaining = get_remaining_tests(results)
 
-    # После 1 и 2 теста
     if remaining:
         await context.bot.send_message(
             chat_id=chat_id,
@@ -189,7 +188,6 @@ async def send_post_result_flow(update, context, main_menu_markup, test_def, res
         )
         return
 
-    # После 3 тестов — финал 1 блока
     if enough_for_basic_personality_code(results):
         payload = build_basic_personality_code(results)
         code_text = render_basic_personality_code(payload)
@@ -206,7 +204,6 @@ async def send_post_result_flow(update, context, main_menu_markup, test_def, res
         )
         return
 
-    # запасной вариант
     await context.bot.send_message(
         chat_id=chat_id,
         text=result_text,
@@ -302,7 +299,6 @@ async def handle_callback(update, context, main_menu_markup, tests):
             break
 
     question_text = test_def["get_question_text"](current_question)
-
     selected_view = f"{question_text}\n✅ {answer_text}"
 
     try:
