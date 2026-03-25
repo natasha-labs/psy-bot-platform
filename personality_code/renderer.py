@@ -3,10 +3,6 @@ def render_basic_personality_code(payload: dict) -> str:
     hidden_label = payload.get("hidden_label") or "—"
     current_label = payload.get("current_label") or "—"
 
-    # 🔥 фикс "Высокий" → "Высокий уровень внутреннего напряжения"
-    if current_label.lower() == "высокий":
-        current_label = "Высокий уровень внутреннего напряжения"
-
     return (
         "✨ *Ваш базовый код личности*\n\n"
         f"🔹 Кто вы в основе — *{main_label}*\n"
