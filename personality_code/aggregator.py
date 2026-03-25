@@ -1,38 +1,49 @@
-from storage.results_store import get_user_profile
-
-
 def enough_for_basic_personality_code(results: dict) -> bool:
-    required = {"anxiety", "archetype", "shadow"}
-    return required.issubset(set(results.keys()))
+    return all(key in results for key in ("anxiety", "archetype", "shadow"))
 
 
-def build_basic_personality_code(results: dict, user_id=None) -> dict:
-    profile = get_user_profile(user_id) if user_id is not None else {}
+def build_basic_personality_code(results: dict) -> dict:
+    archetype_payload = results.get("archetype", {}).get("profile_payload", {}) or {}
+    shadow_payload = results.get("shadow", {}).get("profile_payload", {}) or {}
+    anxiety_payload = results.get("anxiety", {}).get("profile_payload", {}) or {}
 
-    archetype_type = profile.get("archetype_type")
-    shadow_type = profile.get("shadow_type")
-    anxiety_type = profile.get("anxiety_type")
+    main_label = (
+        archetype_payload.get("main_label")
+        or archetype_payload.get("main_type")
+        or archetype_payload.get("archetype_label")
+        or archetype_payload.get("archetype_type")
+        or "—"
+    )
 
-    if not archetype_type and "archetype" in results:
-        archetype_type = (
-            results["archetype"].get("profile_payload", {}).get("main_label")
-            or results["archetype"].get("profile_payload", {}).get("main_type")
-        )
+    hidden_label = (
+        shadow_payload.get("hidden_label")
+        or shadow_payload.get("hidden_type")
+        or shadow_payload.get("main_label")
+        or shadow_payload.get("main_type")
+        or shadow_payload.get("shadow_label")
+        or shadow_payload.get("shadow_type")
+        or "—"
+    )
 
-    if not shadow_type and "shadow" in results:
-        shadow_type = (
-            results["shadow"].get("profile_payload", {}).get("main_label")
-            or results["shadow"].get("profile_payload", {}).get("main_type")
-        )
+    current_label = (
+        anxiety_payload.get("current_label")
+        or anxiety_payload.get("current_state")
+        or anxiety_payload.get("main_label")
+        or anxiety_payload.get("main_type")
+        or anxiety_payload.get("anxiety_label")
+        or anxiety_payload.get("anxiety_type")
+        or "—"
+    )
 
-    if not anxiety_type and "anxiety" in results:
-        anxiety_type = (
-            results["anxiety"].get("profile_payload", {}).get("main_label")
-            or results["anxiety"].get("profile_payload", {}).get("main_type")
-        )
+    if isinstance(current_label, str) and current_label.strip().lower() == "высокий":
+        current_label = "Высокий уровень внутреннего напряжения"
+    elif isinstance(current_label, str) and current_label.strip().lower() == "средний":
+        current_label = "Средний уровень внутреннего напряжения"
+    elif isinstance(current_label, str) and current_label.strip().lower() == "низкий":
+        current_label = "Низкий уровень внутреннего напряжения"
 
     return {
-        "main_type": archetype_type or "—",
-        "shadow_type": shadow_type or "—",
-        "anxiety_type": anxiety_type or "—",
+        "main_label": main_label,
+        "hidden_label": hidden_label,
+        "current_label": current_label,
     }
