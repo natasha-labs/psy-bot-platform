@@ -250,6 +250,11 @@ async def handle_balance_wheel_text(update: Update, context: ContextTypes.DEFAUL
     if state.get("awaiting_resource"):
         return False
 
+    # 🔥 КЛЮЧЕВАЯ ПРОВЕРКА (добавили)
+    if state["sphere_index"] >= len(SPHERES):
+        await _finish_wheel(update.effective_chat.id, user_id, context.bot)
+        return True
+
     question = _current_question(state)
     if question["type"] != "text":
         return False
