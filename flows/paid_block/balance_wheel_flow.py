@@ -265,7 +265,8 @@ async def handle_balance_wheel_text(update: Update, context: ContextTypes.DEFAUL
         return True
 
     if question["type"] != "text":
-        return False
+        await update.message.reply_text("Используйте кнопки ниже.")
+        return True
 
     answer_text = (update.message.text or "").strip()
     sphere = _current_sphere(state)
@@ -420,6 +421,12 @@ async def _finish_wheel(chat_id: int, user_id, bot):
 
         image_path = generate_wheel(chart_data)
 
+        if not image_path:
+            raise RuntimeError("generate_wheel не вернул путь к файлу")
+
+        if not os.path.exists(image_path):
+            raise RuntimeError(f"Файл не найден: {image_path}")
+
         with open(image_path, "rb") as file:
             await bot.send_document(
                 chat_id=chat_id,
@@ -432,12 +439,12 @@ async def _finish_wheel(chat_id: int, user_id, bot):
             reply_markup=_build_find_resource_keyboard(),
         )
 
-    except Exception:
+    except Exception as e:
         state["closed"] = True
         _set_state(user_id, state)
         await bot.send_message(
             chat_id=chat_id,
-            text="Колесо баланса сейчас не удалось построить. Практика закрыта, можно пользоваться ботом дальше.",
+            text=f"Колесо не построилось: {type(e).__name__}: {e}",
         )
     finally:
         try:
