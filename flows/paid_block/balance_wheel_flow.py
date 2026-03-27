@@ -421,7 +421,7 @@ async def _finish_wheel(chat_id: int, user_id, bot):
         image_path = generate_wheel(chart_data)
 
         with open(image_path, "rb") as file:
-            await bot.send_photo(
+            await bot.send_document(
                 chat_id=chat_id,
                 document=file,
             )
