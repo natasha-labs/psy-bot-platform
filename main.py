@@ -167,6 +167,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_space_menu_text(update, context)
         return
 
+    if text == "⚖️ Колесо баланса":
+        await start_balance_wheel(update.message)
+        return
+
     if is_space_tool_text(text):
         await send_tool_stub(update, context, text)
         return
