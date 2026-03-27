@@ -12,6 +12,7 @@ from telegram.ext import (
 )
 
 from engine.test_engine import send_entry_screen, handle_callback as handle_free_callback
+from flows.paid_block.balance_wheel_flow import start_balance_wheel
 from flows.paid_block.deep_profile_flow import handle_paid_callback
 from flows.paid_block.paid_access import has_paid_access
 from flows.paid_block.payment_flow import (
