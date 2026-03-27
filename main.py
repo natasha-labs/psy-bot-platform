@@ -1,5 +1,6 @@
 import os
 import time
+
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
@@ -12,7 +13,11 @@ from telegram.ext import (
 )
 
 from engine.test_engine import send_entry_screen, handle_callback as handle_free_callback
-from flows.paid_block.balance_wheel_flow import start_balance_wheel
+from flows.paid_block.balance_wheel_flow import (
+    start_balance_wheel,
+    handle_balance_wheel_text,
+    handle_balance_wheel_callback,
+)
 from flows.paid_block.deep_profile_flow import handle_paid_callback
 from flows.paid_block.paid_access import has_paid_access
 from flows.paid_block.payment_flow import (
@@ -148,6 +153,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message:
+        return
+
     text = update.message.text
 
     user = update.effective_user
@@ -155,6 +163,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     results = get_user_results(user_id)
     main_menu_markup = get_main_menu(user_id)
 
+    # 1. Сначала даём Балансу перехватить свободный текст,
+    # если сейчас активен текстовый вопрос внутри практики.
+    handled_by_balance = await handle_balance_wheel_text(update, context)
+    if handled_by_balance:
+        return
+
+    # 2. Пространство второго блока
     if text == "Открыть пространство":
         await send_space_menu_text(update, context)
         return
@@ -175,6 +190,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_tool_stub(update, context, text)
         return
 
+    # 3. Админские функции
     if text == "Сбросить мои тесты":
         if not is_admin(user_id):
             await update.message.reply_text(
@@ -206,6 +222,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    # 4. Первый блок
     if text == "Начать":
         reset_user_progress(user_id)
         context.user_data.clear()
@@ -259,6 +276,12 @@ async def handle_all_callbacks(update: Update, context: ContextTypes.DEFAULT_TYP
     user = update.effective_user
     user_id = user.id if user else "unknown"
 
+    # 1. Сначала даём Балансу перехватить свои inline-кнопки
+    handled_by_balance = await handle_balance_wheel_callback(update, context)
+    if handled_by_balance:
+        return
+
+    # 2. Upsell
     if data == "learn_more":
         await update.effective_chat.send_message(
             get_payment_placeholder_text(),
@@ -266,6 +289,7 @@ async def handle_all_callbacks(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         return
 
+    # 3. Доступ во второй блок
     if data in ("full_profile_info", "buy_full_code"):
         if is_admin(user_id):
             await update.effective_chat.send_message(
@@ -283,10 +307,12 @@ async def handle_all_callbacks(update: Update, context: ContextTypes.DEFAULT_TYP
             await send_deep_profile_invoice(update, context)
         return
 
+    # 4. Старый callback во второй блок
     if data in ("open_space",):
         await handle_paid_callback(update, context)
         return
 
+    # 5. Всё остальное — первый блок
     main_menu_markup = get_main_menu(user_id)
     await handle_free_callback(update, context, main_menu_markup, TESTS)
 
