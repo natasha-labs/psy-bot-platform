@@ -1,143 +1,310 @@
-from aiogram import types
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+import os
+from typing import Dict, Any
+
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram.ext import ContextTypes
 
 from tests.balance_wheel.questions import SPHERES, get_questions_for_sphere
 from tests.balance_wheel.logic import find_main_problem
 from tests.balance_wheel.result import build_final_text
 from tests.balance_wheel.visual import generate_wheel
 
-
-user_state = {}
-
-
-async def start_balance_wheel(message: types.Message):
-    user_state[message.from_user.id] = {
-        "sphere_index": 0,
-        "question_index": 0,
-        "data": {}
-    }
-
-    await ask_next(message)
+try:
+    from storage.results_store import load_results, save_results
+except Exception:
+    load_results = None
+    save_results = None
 
 
-async def ask_next(message: types.Message):
-    state = user_state[message.from_user.id]
+BALANCE_WHEEL_STATE: Dict[str, Dict[str, Any]] = {}
 
-    if state["sphere_index"] >= len(SPHERES):
-        await finish_wheel(message)
-        return
 
-    sphere = SPHERES[state["sphere_index"]]
+def _user_key(user_id) -> str:
+    return str(user_id)
+
+
+def is_balance_wheel_active(user_id) -> bool:
+    return _user_key(user_id) in BALANCE_WHEEL_STATE
+
+
+def _get_state(user_id):
+    return BALANCE_WHEEL_STATE.get(_user_key(user_id))
+
+
+def _set_state(user_id, state: dict):
+    BALANCE_WHEEL_STATE[_user_key(user_id)] = state
+
+
+def _clear_state(user_id):
+    BALANCE_WHEEL_STATE.pop(_user_key(user_id), None)
+
+
+def _current_sphere(state: dict) -> str:
+    return SPHERES[state["sphere_index"]]
+
+
+def _current_question(state: dict) -> dict:
+    sphere = _current_sphere(state)
     questions = get_questions_for_sphere(sphere)
-
-    question = questions[state["question_index"]]
-
-    if question["type"] == "choice":
-        keyboard = InlineKeyboardMarkup()
-        for i, option in enumerate(question["options"]):
-            keyboard.add(
-                InlineKeyboardButton(
-                    option,
-                    callback_data=f"bw_{i}"
-                )
-            )
-        await message.answer(question["question"], reply_markup=keyboard)
-    else:
-        await message.answer(question["question"])
+    return questions[state["question_index"]]
 
 
-async def handle_text(message: types.Message):
-    state = user_state.get(message.from_user.id)
-    if not state:
-        return
-
-    sphere = SPHERES[state["sphere_index"]]
-    questions = get_questions_for_sphere(sphere)
-    question = questions[state["question_index"]]
-
-    if question["type"] == "text":
-        state["data"].setdefault(sphere, {})
-        state["data"][sphere]["meaning"] = message.text
-
-        state["question_index"] += 1
-        await ask_next(message)
+def _build_choice_keyboard(options):
+    rows = []
+    for idx, option in enumerate(options):
+        rows.append([InlineKeyboardButton(option, callback_data=f"bw_choice:{idx}")])
+    return InlineKeyboardMarkup(rows)
 
 
-async def handle_choice(callback: types.CallbackQuery):
-    state = user_state.get(callback.from_user.id)
-    if not state:
-        return
+def _build_resource_keyboard():
+    rows = []
+    for idx, sphere in enumerate(SPHERES):
+        rows.append([InlineKeyboardButton(sphere, callback_data=f"bw_resource:{idx}")])
+    return InlineKeyboardMarkup(rows)
 
-    sphere = SPHERES[state["sphere_index"]]
-    questions = get_questions_for_sphere(sphere)
-    question = questions[state["question_index"]]
 
-    index = int(callback.data.split("_")[1])
-    score = question["scores"][index]
+def _build_find_resource_keyboard():
+    return InlineKeyboardMarkup(
+        [[InlineKeyboardButton("Найти ресурс", callback_data="bw_find_resource")]]
+    )
 
-    state["data"].setdefault(sphere, {})
 
-    if "satisfaction" in question["key"]:
-        state["data"][sphere]["satisfaction"] = score
-    elif "importance" in question["key"]:
-        state["data"][sphere]["importance"] = score
-    elif "action" in question["key"]:
-        state["data"][sphere]["action"] = score
-
+def _advance(state: dict):
     state["question_index"] += 1
 
     if state["question_index"] >= 4:
         state["question_index"] = 0
         state["sphere_index"] += 1
 
-    await callback.message.delete()
-    await ask_next(callback.message)
+
+def _save_balance_wheel_result(user_id, raw_data, main_problem=None, resource_area=None):
+    if load_results is None or save_results is None:
+        return
+
+    try:
+        data = load_results()
+        uid = _user_key(user_id)
+
+        if uid not in data:
+            data[uid] = {
+                "user_id": user_id,
+                "completed_tests": [],
+                "results": {},
+                "paid_access": False,
+            }
+
+        if "results" not in data[uid]:
+            data[uid]["results"] = {}
+
+        data[uid]["results"]["balance_wheel"] = {
+            "title": "Колесо баланса",
+            "raw_data": raw_data,
+            "main_problem": main_problem,
+            "resource_area": resource_area,
+        }
+
+        save_results(data)
+    except Exception:
+        pass
 
 
-async def finish_wheel(message: types.Message):
-    state = user_state[message.from_user.id]
-    data = state["data"]
+async def _send_current_question(chat_id: int, user_id, bot):
+    state = _get_state(user_id)
+    if not state:
+        return
 
-    chart_data = {
-        sphere: values["satisfaction"]
-        for sphere, values in data.items()
+    if state["sphere_index"] >= len(SPHERES):
+        await _finish_wheel(chat_id, user_id, bot)
+        return
+
+    sphere = _current_sphere(state)
+    question = _current_question(state)
+
+    prefix = f"Сфера {state['sphere_index'] + 1} из {len(SPHERES)}: {sphere}\n\n"
+    text = prefix + question["question"]
+
+    if question["type"] == "choice":
+        await bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            reply_markup=_build_choice_keyboard(question["options"]),
+        )
+    else:
+        await bot.send_message(
+            chat_id=chat_id,
+            text=text,
+        )
+
+
+async def start_balance_wheel(message):
+    user = message.from_user
+    if not user:
+        return
+
+    user_id = user.id
+    bot = message.get_bot()
+
+    state = {
+        "sphere_index": 0,
+        "question_index": 0,
+        "answers": {},
+        "awaiting_resource": False,
     }
+    _set_state(user_id, state)
+
+    await bot.send_message(
+        chat_id=message.chat_id,
+        text="Колесо баланса\n\nМы пройдём по 9 сферам. В каждой будет 4 вопроса.",
+    )
+    await _send_current_question(message.chat_id, user_id, bot)
+
+
+async def handle_balance_wheel_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    if not update.message or not update.effective_user:
+        return False
+
+    user_id = update.effective_user.id
+    state = _get_state(user_id)
+
+    if not state:
+        return False
+
+    if state.get("awaiting_resource"):
+        return False
+
+    question = _current_question(state)
+
+    if question["type"] != "text":
+        return False
+
+    sphere = _current_sphere(state)
+    state["answers"].setdefault(sphere, {})
+    state["answers"][sphere]["meaning"] = (update.message.text or "").strip()
+
+    _advance(state)
+    _set_state(user_id, state)
+
+    await _send_current_question(update.effective_chat.id, user_id, context.bot)
+    return True
+
+
+async def handle_balance_wheel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    query = update.callback_query
+    user = update.effective_user
+
+    if not query or not user:
+        return False
+
+    data = query.data or ""
+    user_id = user.id
+    state = _get_state(user_id)
+
+    if not state:
+        return False
+
+    if data.startswith("bw_choice:"):
+        question = _current_question(state)
+        if question["type"] != "choice":
+            return True
+
+        choice_index = int(data.split(":")[1])
+        score = question["scores"][choice_index]
+
+        sphere = _current_sphere(state)
+        state["answers"].setdefault(sphere, {})
+
+        key = question["key"]
+        if key.endswith("_satisfaction"):
+            state["answers"][sphere]["satisfaction"] = score
+        elif key.endswith("_importance"):
+            state["answers"][sphere]["importance"] = score
+        elif key.endswith("_action"):
+            state["answers"][sphere]["action"] = score
+
+        _advance(state)
+        _set_state(user_id, state)
+
+        try:
+            await query.edit_message_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+
+        await _send_current_question(update.effective_chat.id, user_id, context.bot)
+        return True
+
+    if data == "bw_find_resource":
+        state["awaiting_resource"] = True
+        _set_state(user_id, state)
+
+        try:
+            await query.edit_message_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="В какой сфере у тебя сейчас больше всего энергии?",
+            reply_markup=_build_resource_keyboard(),
+        )
+        return True
+
+    if data.startswith("bw_resource:"):
+        resource_index = int(data.split(":")[1])
+        resource_area = SPHERES[resource_index]
+
+        main_problem = find_main_problem(state["answers"])
+
+        _save_balance_wheel_result(
+            user_id=user_id,
+            raw_data=state["answers"],
+            main_problem=main_problem,
+            resource_area=resource_area,
+        )
+
+        text = build_final_text(main_problem, resource_area)
+
+        try:
+            await query.edit_message_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=text,
+        )
+
+        _clear_state(user_id)
+        return True
+
+    return False
+
+
+async def _finish_wheel(chat_id: int, user_id, bot):
+    state = _get_state(user_id)
+    if not state:
+        return
+
+    chart_data = {}
+    for sphere in SPHERES:
+        values = state["answers"].get(sphere, {})
+        chart_data[sphere] = values.get("satisfaction", 1)
 
     image_path = generate_wheel(chart_data)
 
-    await message.answer_photo(types.InputFile(image_path))
-
-    keyboard = InlineKeyboardMarkup().add(
-        InlineKeyboardButton("Найти ресурс", callback_data="find_resource")
-    )
-
-    await message.answer("Посмотри на свою картину жизни", reply_markup=keyboard)
-
-
-async def handle_resource(callback: types.CallbackQuery):
-    keyboard = InlineKeyboardMarkup()
-
-    for i, sphere in enumerate(SPHERES):
-        keyboard.add(
-            InlineKeyboardButton(sphere, callback_data=f"res_{i}")
+    with open(image_path, "rb") as photo:
+        await bot.send_photo(
+            chat_id=chat_id,
+            photo=photo,
         )
 
-    await callback.message.answer(
-        "В какой сфере у тебя сейчас больше всего энергии?",
-        reply_markup=keyboard
+    try:
+        if os.path.exists(image_path):
+            os.remove(image_path)
+    except Exception:
+        pass
+
+    await bot.send_message(
+        chat_id=chat_id,
+        text="Посмотри на свою картину жизни.",
+        reply_markup=_build_find_resource_keyboard(),
     )
-
-
-async def handle_resource_choice(callback: types.CallbackQuery):
-    state = user_state[callback.from_user.id]
-    data = state["data"]
-
-    resource_index = int(callback.data.split("_")[1])
-    resource_area = SPHERES[resource_index]
-
-    main_problem = find_main_problem(data)
-
-    text = build_final_text(main_problem, resource_area)
-
-    await callback.message.delete()
-    await callback.message.answer(text)
