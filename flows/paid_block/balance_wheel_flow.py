@@ -9,7 +9,7 @@ from telegram import (
 )
 from telegram.ext import ContextTypes
 
-from tests.balance_wheel.questions import SPHERES, get_questions_for_sphere
+from tests.balance_wheel.questions import SPHERES
 from tests.balance_wheel.logic import find_main_problem
 from tests.balance_wheel.result import build_final_text
 from tests.balance_wheel.visual import generate_wheel
@@ -23,28 +23,70 @@ except Exception:
 
 BALANCE_WHEEL_STATE: Dict[str, Dict[str, Any]] = {}
 
-BLOCKED_TEXT_INPUTS = {
-    "🌿 Расстановки (Берт Хеллингер)",
-    "🃏 Метафорические карты (МАК)",
-    "⚖️ Колесо баланса",
-    "🔺 Роли в отношениях (Треугольник Карпмана)",
-    "🧠 Схематерапия (Джеффри Янг)",
-    "🎭 Внутренние семейные системы IFS (Ричард Шварц)",
-    "ℹ️ О пространстве",
-    "🔄 Назад",
-    "Открыть пространство",
-    "QA: открыть пространство",
-    "Выдать доступ ко 2 блоку",
-    "Сбросить мои тесты",
-    "Начать",
-    "Начать исследование",
-    "Мои результаты",
-    "О тесте",
+SPHERE_HINTS = {
+    "Здоровье": "Тонус, самочувствие, энергия, профилактика",
+    "Деньги": "Доход, стабильность, лёгкость заработка",
+    "Отдых": "Путешествия, развлечения, восстановление, встречи",
+    "Окружение": "Круг общения, поддержка, статус",
+    "Обучение": "Развитие, знания, учителя, книги",
+    "Творчество": "Хобби, самовыражение, любимое дело, вдохновение",
+    "Работа и реализация": "Успех, рост, влияние, интересные проекты",
+    "Отношения": "Любовь, близость, доверие, друзья",
+    "Развитие": "Осознанность, мышление, внутренний рост",
+}
+
+SATISFACTION_QUESTION = {
+    "type": "choice",
+    "key": "satisfaction",
+    "question": "Насколько ты сейчас доволен этой сферой?",
+    "options": [
+        "Очень плохо",
+        "Плохо",
+        "Средне",
+        "Хорошо",
+        "Очень хорошо",
+    ],
+    "scores": [1, 2, 3, 4, 5],
+}
+
+IMPORTANCE_QUESTION = {
+    "type": "choice",
+    "key": "importance",
+    "question": "Насколько это важно для тебя?",
+    "options": [
+        "Не важно",
+        "Скорее не важно",
+        "Средне",
+        "Важно",
+        "Очень важно",
+    ],
+    "scores": [1, 2, 3, 4, 5],
+}
+
+ACTION_QUESTION = {
+    "type": "choice",
+    "key": "action",
+    "question": "Что ты сейчас делаешь для развития этой сферы?",
+    "options": [
+        "Я этим занимаюсь",
+        "Иногда уделяю внимание",
+        "Пока откладываю",
+    ],
+    "scores": [3, 2, 1],
+}
+
+MEANING_QUESTION = {
+    "type": "text",
+    "key": "meaning",
 }
 
 
 def _user_key(user_id) -> str:
     return str(user_id)
+
+
+def is_balance_wheel_active(user_id) -> bool:
+    return _user_key(user_id) in BALANCE_WHEEL_STATE
 
 
 def _get_state(user_id):
@@ -63,9 +105,27 @@ def _current_sphere(state: dict) -> str:
     return SPHERES[state["sphere_index"]]
 
 
+def _questions_for_sphere(sphere: str):
+    hint = SPHERE_HINTS.get(sphere, "")
+    text_question = {
+        "type": "text",
+        "key": "meaning",
+        "question": (
+            "Напиши несколько слов, что в этой сфере жизни для вас важно.\n\n"
+            f"Можно ориентироваться на примеры: ({hint})"
+        ),
+    }
+    return [
+        SATISFACTION_QUESTION,
+        IMPORTANCE_QUESTION,
+        ACTION_QUESTION,
+        text_question,
+    ]
+
+
 def _current_question(state: dict) -> dict:
     sphere = _current_sphere(state)
-    questions = get_questions_for_sphere(sphere)
+    questions = _questions_for_sphere(sphere)
     return questions[state["question_index"]]
 
 
@@ -87,12 +147,6 @@ def _build_resource_keyboard():
     for idx, sphere in enumerate(SPHERES):
         rows.append([InlineKeyboardButton(sphere, callback_data=f"bw_resource:{idx}")])
     return InlineKeyboardMarkup(rows)
-
-
-def _build_skip_text_keyboard():
-    return InlineKeyboardMarkup(
-        [[InlineKeyboardButton("Пропустить", callback_data="bw_skip_text")]]
-    )
 
 
 def _advance(state: dict):
@@ -151,26 +205,19 @@ async def _send_current_question(chat_id: int, user_id, bot):
 
     title = f"Сфера {state['sphere_index'] + 1} из {len(SPHERES)}: {sphere}"
 
-    if question["type"] == "text":
-        text = (
-            f"{title}\n\n"
-            f"{sphere}\n\n"
-            f"{question['question']}\n\n"
-            f"Напиши ответ обычным сообщением."
-        )
+    text = f"{title}\n\n{question['question']}"
+
+    if question["type"] == "choice":
         await bot.send_message(
             chat_id=chat_id,
             text=text,
-            reply_markup=_build_skip_text_keyboard(),
+            reply_markup=_build_choice_keyboard(question["options"]),
         )
-        return
-
-    text = f"{title}\n\n{question['question']}"
-    await bot.send_message(
-        chat_id=chat_id,
-        text=text,
-        reply_markup=_build_choice_keyboard(question["options"]),
-    )
+    else:
+        await bot.send_message(
+            chat_id=chat_id,
+            text=text,
+        )
 
 
 async def start_balance_wheel(message):
@@ -191,8 +238,9 @@ async def start_balance_wheel(message):
 
     await bot.send_message(
         chat_id=message.chat_id,
-        text="Колесо баланса\n\nМы пройдём по 9 сферам. В каждой будет 4 вопроса.",
+        text="Колесо баланса\n\nМы пройдём по 9 сферам. В каждой сфере будет 3 вопроса с вариантами ответа и 1 короткий текстовый вопрос.",
     )
+
     await _send_current_question(message.chat_id, user_id, bot)
 
 
@@ -216,12 +264,8 @@ async def handle_balance_wheel_text(update: Update, context: ContextTypes.DEFAUL
     sphere = _current_sphere(state)
 
     if not answer_text:
-        await update.message.reply_text("Напиши ответ обычным сообщением.")
-        return True
-
-    if answer_text in BLOCKED_TEXT_INPUTS:
         await update.message.reply_text(
-            "Сейчас нужен текстовый ответ на вопрос. Напиши его обычным сообщением."
+            "Напиши ответ обычным сообщением."
         )
         return True
 
@@ -254,30 +298,6 @@ async def handle_balance_wheel_callback(update: Update, context: ContextTypes.DE
     if not state:
         return False
 
-    if data == "bw_skip_text":
-        question = _current_question(state)
-        sphere = _current_sphere(state)
-
-        state["answers"].setdefault(sphere, {})
-        state["answers"][sphere]["meaning"] = ""
-
-        try:
-            await query.edit_message_text(
-                text=(
-                    f"Сфера {state['sphere_index'] + 1} из {len(SPHERES)}: {sphere}\n\n"
-                    f"{question['question']}\n"
-                    f"Ответ: пропущено"
-                )
-            )
-        except Exception:
-            pass
-
-        _advance(state)
-        _set_state(user_id, state)
-
-        await _send_current_question(update.effective_chat.id, user_id, context.bot)
-        return True
-
     if data.startswith("bw_choice:"):
         question = _current_question(state)
         if question["type"] != "choice":
@@ -291,11 +311,11 @@ async def handle_balance_wheel_callback(update: Update, context: ContextTypes.DE
         state["answers"].setdefault(sphere, {})
         key = question["key"]
 
-        if key.endswith("_satisfaction"):
+        if key == "satisfaction":
             state["answers"][sphere]["satisfaction"] = score
-        elif key.endswith("_importance"):
+        elif key == "importance":
             state["answers"][sphere]["importance"] = score
-        elif key.endswith("_action"):
+        elif key == "action":
             state["answers"][sphere]["action"] = score
 
         try:
