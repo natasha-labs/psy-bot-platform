@@ -23,13 +23,28 @@ except Exception:
 
 BALANCE_WHEEL_STATE: Dict[str, Dict[str, Any]] = {}
 
+BLOCKED_TEXT_INPUTS = {
+    "🌿 Расстановки (Берт Хеллингер)",
+    "🃏 Метафорические карты (МАК)",
+    "⚖️ Колесо баланса",
+    "🔺 Роли в отношениях (Треугольник Карпмана)",
+    "🧠 Схематерапия (Джеффри Янг)",
+    "🎭 Внутренние семейные системы IFS (Ричард Шварц)",
+    "ℹ️ О пространстве",
+    "🔄 Назад",
+    "Открыть пространство",
+    "QA: открыть пространство",
+    "Выдать доступ ко 2 блоку",
+    "Сбросить мои тесты",
+    "Начать",
+    "Начать исследование",
+    "Мои результаты",
+    "О тесте",
+}
+
 
 def _user_key(user_id) -> str:
     return str(user_id)
-
-
-def is_balance_wheel_active(user_id) -> bool:
-    return _user_key(user_id) in BALANCE_WHEEL_STATE
 
 
 def _get_state(user_id):
@@ -61,6 +76,12 @@ def _build_choice_keyboard(options):
     return InlineKeyboardMarkup(rows)
 
 
+def _build_find_resource_keyboard():
+    return InlineKeyboardMarkup(
+        [[InlineKeyboardButton("Найти ресурс", callback_data="bw_find_resource")]]
+    )
+
+
 def _build_resource_keyboard():
     rows = []
     for idx, sphere in enumerate(SPHERES):
@@ -68,15 +89,14 @@ def _build_resource_keyboard():
     return InlineKeyboardMarkup(rows)
 
 
-def _build_find_resource_keyboard():
+def _build_skip_text_keyboard():
     return InlineKeyboardMarkup(
-        [[InlineKeyboardButton("Найти ресурс", callback_data="bw_find_resource")]]
+        [[InlineKeyboardButton("Пропустить", callback_data="bw_skip_text")]]
     )
 
 
 def _advance(state: dict):
     state["question_index"] += 1
-
     if state["question_index"] >= 4:
         state["question_index"] = 0
         state["sphere_index"] += 1
@@ -113,8 +133,8 @@ def _save_balance_wheel_result(user_id, raw_data, main_problem=None, resource_ar
         pass
 
 
-def _get_answer_text(question: dict, choice_index: int) -> str:
-    return question["options"][choice_index]
+def _choice_answer_text(question: dict, idx: int) -> str:
+    return question["options"][idx]
 
 
 async def _send_current_question(chat_id: int, user_id, bot):
@@ -129,22 +149,28 @@ async def _send_current_question(chat_id: int, user_id, bot):
     sphere = _current_sphere(state)
     question = _current_question(state)
 
-    text = (
-        f"Сфера {state['sphere_index'] + 1} из {len(SPHERES)}: {sphere}\n\n"
-        f"{question['question']}"
-    )
+    title = f"Сфера {state['sphere_index'] + 1} из {len(SPHERES)}: {sphere}"
 
-    if question["type"] == "choice":
+    if question["type"] == "text":
+        text = (
+            f"{title}\n\n"
+            f"{sphere}\n\n"
+            f"{question['question']}\n\n"
+            f"Напиши ответ обычным сообщением."
+        )
         await bot.send_message(
             chat_id=chat_id,
             text=text,
-            reply_markup=_build_choice_keyboard(question["options"]),
+            reply_markup=_build_skip_text_keyboard(),
         )
-    else:
-        await bot.send_message(
-            chat_id=chat_id,
-            text=text,
-        )
+        return
+
+    text = f"{title}\n\n{question['question']}"
+    await bot.send_message(
+        chat_id=chat_id,
+        text=text,
+        reply_markup=_build_choice_keyboard(question["options"]),
+    )
 
 
 async def start_balance_wheel(message):
@@ -167,7 +193,6 @@ async def start_balance_wheel(message):
         chat_id=message.chat_id,
         text="Колесо баланса\n\nМы пройдём по 9 сферам. В каждой будет 4 вопроса.",
     )
-
     await _send_current_question(message.chat_id, user_id, bot)
 
 
@@ -177,7 +202,6 @@ async def handle_balance_wheel_text(update: Update, context: ContextTypes.DEFAUL
 
     user_id = update.effective_user.id
     state = _get_state(user_id)
-
     if not state:
         return False
 
@@ -185,12 +209,21 @@ async def handle_balance_wheel_text(update: Update, context: ContextTypes.DEFAUL
         return False
 
     question = _current_question(state)
-
     if question["type"] != "text":
         return False
 
-    sphere = _current_sphere(state)
     answer_text = (update.message.text or "").strip()
+    sphere = _current_sphere(state)
+
+    if not answer_text:
+        await update.message.reply_text("Напиши ответ обычным сообщением.")
+        return True
+
+    if answer_text in BLOCKED_TEXT_INPUTS:
+        await update.message.reply_text(
+            "Сейчас нужен текстовый ответ на вопрос. Напиши его обычным сообщением."
+        )
+        return True
 
     state["answers"].setdefault(sphere, {})
     state["answers"][sphere]["meaning"] = answer_text
@@ -218,23 +251,46 @@ async def handle_balance_wheel_callback(update: Update, context: ContextTypes.DE
     data = query.data or ""
     user_id = user.id
     state = _get_state(user_id)
-
     if not state:
         return False
+
+    if data == "bw_skip_text":
+        question = _current_question(state)
+        sphere = _current_sphere(state)
+
+        state["answers"].setdefault(sphere, {})
+        state["answers"][sphere]["meaning"] = ""
+
+        try:
+            await query.edit_message_text(
+                text=(
+                    f"Сфера {state['sphere_index'] + 1} из {len(SPHERES)}: {sphere}\n\n"
+                    f"{question['question']}\n"
+                    f"Ответ: пропущено"
+                )
+            )
+        except Exception:
+            pass
+
+        _advance(state)
+        _set_state(user_id, state)
+
+        await _send_current_question(update.effective_chat.id, user_id, context.bot)
+        return True
 
     if data.startswith("bw_choice:"):
         question = _current_question(state)
         if question["type"] != "choice":
             return True
 
-        choice_index = int(data.split(":")[1])
-        score = question["scores"][choice_index]
-        answer_text = _get_answer_text(question, choice_index)
-
+        idx = int(data.split(":")[1])
+        score = question["scores"][idx]
+        answer_text = _choice_answer_text(question, idx)
         sphere = _current_sphere(state)
-        state["answers"].setdefault(sphere, {})
 
+        state["answers"].setdefault(sphere, {})
         key = question["key"]
+
         if key.endswith("_satisfaction"):
             state["answers"][sphere]["satisfaction"] = score
         elif key.endswith("_importance"):
@@ -242,13 +298,16 @@ async def handle_balance_wheel_callback(update: Update, context: ContextTypes.DE
         elif key.endswith("_action"):
             state["answers"][sphere]["action"] = score
 
-        await query.edit_message_text(
-            text=(
-                f"Сфера {state['sphere_index'] + 1} из {len(SPHERES)}: {sphere}\n\n"
-                f"{question['question']}\n"
-                f"Ответ: {answer_text}"
+        try:
+            await query.edit_message_text(
+                text=(
+                    f"Сфера {state['sphere_index'] + 1} из {len(SPHERES)}: {sphere}\n\n"
+                    f"{question['question']}\n"
+                    f"Ответ: {answer_text}"
+                )
             )
-        )
+        except Exception:
+            pass
 
         _advance(state)
         _set_state(user_id, state)
@@ -273,9 +332,8 @@ async def handle_balance_wheel_callback(update: Update, context: ContextTypes.DE
         return True
 
     if data.startswith("bw_resource:"):
-        resource_index = int(data.split(":")[1])
-        resource_area = SPHERES[resource_index]
-
+        idx = int(data.split(":")[1])
+        resource_area = SPHERES[idx]
         main_problem = find_main_problem(state["answers"])
 
         _save_balance_wheel_result(
@@ -292,11 +350,9 @@ async def handle_balance_wheel_callback(update: Update, context: ContextTypes.DE
         except Exception:
             pass
 
-        text = build_final_text(main_problem, resource_area)
-
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text=text,
+            text=build_final_text(main_problem, resource_area),
         )
 
         _clear_state(user_id)
@@ -318,11 +374,10 @@ async def _finish_wheel(chat_id: int, user_id, bot):
     image_path = generate_wheel(chart_data)
 
     try:
-        with open(image_path, "rb") as photo:
-            await bot.send_photo(
-                chat_id=chat_id,
-                photo=InputFile(photo),
-            )
+        await bot.send_photo(
+            chat_id=chat_id,
+            photo=InputFile(image_path),
+        )
     finally:
         try:
             if image_path and os.path.exists(image_path):
