@@ -420,10 +420,10 @@ async def _finish_wheel(chat_id: int, user_id, bot):
 
         image_path = generate_wheel(chart_data)
 
-        with open(image_path, "rb") as photo_file:
+        with open(image_path, "rb") as file:
             await bot.send_photo(
                 chat_id=chat_id,
-                photo=photo_file,
+                document=file,
             )
 
         await bot.send_message(
