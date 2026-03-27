@@ -24,15 +24,15 @@ except Exception:
 BALANCE_WHEEL_STATE: Dict[str, Dict[str, Any]] = {}
 
 SPHERE_HINTS = {
-    "Здоровье": "Тонус, самочувствие, энергия, профилактика",
-    "Деньги": "Доход, стабильность, лёгкость заработка",
-    "Отдых": "Путешествия, развлечения, восстановление, встречи",
-    "Окружение": "Круг общения, поддержка, статус",
-    "Обучение": "Развитие, знания, учителя, книги",
-    "Творчество": "Хобби, самовыражение, любимое дело, вдохновение",
-    "Работа и реализация": "Успех, рост, влияние, интересные проекты",
-    "Отношения": "Любовь, близость, доверие, друзья",
-    "Развитие": "Осознанность, мышление, внутренний рост",
+    "Здоровье": "тонус, самочувствие, энергия, профилактика",
+    "Деньги": "доход, стабильность, лёгкость заработка",
+    "Отдых": "путешествия, развлечения, восстановление, встречи",
+    "Окружение": "круг общения, поддержка, статус",
+    "Обучение": "развитие, знания, учителя, книги",
+    "Творчество": "хобби, самовыражение, любимое дело, вдохновение",
+    "Работа и реализация": "успех, рост, влияние, интересные проекты",
+    "Отношения": "любовь, близость, доверие, друзья",
+    "Развитие": "осознанность, мышление, внутренний рост",
 }
 
 SATISFACTION_QUESTION = {
@@ -73,11 +73,6 @@ ACTION_QUESTION = {
         "Пока откладываю",
     ],
     "scores": [3, 2, 1],
-}
-
-MEANING_QUESTION = {
-    "type": "text",
-    "key": "meaning",
 }
 
 
@@ -204,7 +199,6 @@ async def _send_current_question(chat_id: int, user_id, bot):
     question = _current_question(state)
 
     title = f"Сфера {state['sphere_index'] + 1} из {len(SPHERES)}: {sphere}"
-
     text = f"{title}\n\n{question['question']}"
 
     if question["type"] == "choice":
@@ -264,19 +258,11 @@ async def handle_balance_wheel_text(update: Update, context: ContextTypes.DEFAUL
     sphere = _current_sphere(state)
 
     if not answer_text:
-        await update.message.reply_text(
-            "Напиши ответ обычным сообщением."
-        )
+        await update.message.reply_text("Напиши ответ обычным сообщением.")
         return True
 
     state["answers"].setdefault(sphere, {})
     state["answers"][sphere]["meaning"] = answer_text
-
-    await update.message.reply_text(
-        f"Сфера {state['sphere_index'] + 1} из {len(SPHERES)}: {sphere}\n\n"
-        f"{question['question']}\n"
-        f"Ответ: {answer_text}"
-    )
 
     _advance(state)
     _set_state(user_id, state)
