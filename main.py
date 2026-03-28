@@ -73,7 +73,8 @@ def is_admin(user_id) -> bool:
 def get_main_menu(user_id):
     menu = [row[:] for row in MAIN_MENU]
 
-    if has_paid_access(user_id):
+    # 👇 ВСЕГДА показываем кнопку пространства админу
+    if has_paid_access(user_id) or is_admin(user_id):
         menu.append(["Открыть пространство"])
 
     if is_admin(user_id):
@@ -130,31 +131,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     reset_user_progress(user_id)
 
-    if has_paid_access(user_id):
-        await update.message.reply_text(
-            "Доступ к пространству уже открыт. Выбери, с чем хочешь поработать сегодня.",
-            reply_markup=get_space_menu_keyboard(user_id),
-        )
-        return
-
-    text = (
-        "Привет. Меня зовут Наташа. Я психолог и работаю в интегративном подходе.\n\n"
-        "Внутри тебя есть система, которая управляет твоими мыслями:\n\n"
-        "1. что с тобой происходит и как ты реагируешь\n"
-        "2. какие сценарии повторяешь\n"
-        "3. где ты теряешь себя\n"
-        "4. куда уходит энергия\n"
-        "5. как это менять\n\n"
-        "Я не работаю по одному методу.\n"
-        "Я собрала систему, которая показывает человека целиком и помогает ему находить лучшие решения.\n\n"
-        "Тебе не нужно больше искать ответы в разных местах. В этом приложении ты найдёшь всё, что поможет тебе каждый день справляться.\n\n"
-        "Начнём с быстрого входа.\n\n"
-        "Это займёт 2–3 минуты и покажет базовую картину."
-    )
-
+    # 👇 ВСЕГДА даём главное меню (фикс QA кнопки)
     await update.message.reply_text(
-        text,
-        reply_markup=START_KEYBOARD,
+        "Привет. Меня зовут Наташа.\n\nНачнём.",
+        reply_markup=get_main_menu(user_id),
     )
 
 
@@ -168,6 +148,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = user.id if user else "unknown"
     results = get_user_results(user_id)
     main_menu_markup = get_main_menu(user_id)
+
+    # 👇 сначала баланс
+    handled_by_balance = await handle_balance_wheel_text(update, context)
+    if handled_by_balance:
+        return
 
     if text in {
         "Начать",
@@ -277,10 +262,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             build_about_text(),
             reply_markup=get_main_menu(user_id),
         )
-        return
-
-    handled_by_balance = await handle_balance_wheel_text(update, context)
-    if handled_by_balance:
         return
 
     await update.message.reply_text(
