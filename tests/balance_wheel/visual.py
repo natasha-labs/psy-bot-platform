@@ -10,26 +10,28 @@ def generate_wheel(data: dict):
     labels = list(data.keys())
     values = list(data.values())
 
-    if not labels or not values:
+    if not labels:
         return None
 
     num_vars = len(labels)
 
-    angles = np.linspace(0, 2 * np.pi, num_vars, endpoint=False).tolist()
-    values += values[:1]
-    angles += angles[:1]
+    angles = np.linspace(0, 2 * np.pi, num_vars, endpoint=False)
 
-    fig, ax = plt.subplots(figsize=(7, 7), subplot_kw=dict(polar=True))
+    values = values + values[:1]
+    angles = list(angles) + [angles[0]]
 
-    ax.plot(angles, values, linewidth=2)
-    ax.fill(angles, values, alpha=0.25)
+    fig, ax = plt.subplots(figsize=(6, 6), subplot_kw=dict(polar=True))
 
-    ax.set_ylim(0, 5)
+    ax.plot(angles, values)
+    ax.fill(angles, values, alpha=0.2)
+
     ax.set_xticks(angles[:-1])
     ax.set_xticklabels(labels)
 
-    tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
-    plt.savefig(tmp_file.name, bbox_inches="tight")
-    plt.close(fig)
+    ax.set_ylim(0, 5)
 
-    return tmp_file.name
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+    plt.savefig(tmp.name)
+    plt.close()
+
+    return tmp.name
