@@ -73,7 +73,6 @@ def is_admin(user_id) -> bool:
 def get_main_menu(user_id):
     menu = [row[:] for row in MAIN_MENU]
 
-    # 👇 ВСЕГДА показываем кнопку пространства админу
     if has_paid_access(user_id) or is_admin(user_id):
         menu.append(["Открыть пространство"])
 
@@ -131,9 +130,31 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     reset_user_progress(user_id)
 
-    # 👇 ВСЕГДА даём главное меню (фикс QA кнопки)
+    text = (
+        "Привет. Меня зовут Наташа.\n\n"
+        "Я психолог и работаю в интегративном подходе. Это значит, что я не разделяю методы, "
+        "а соединяю их — чтобы видеть человека целостно и работать глубже.\n\n"
+        "Тебе не нужно больше бегать по разным специалистам в поисках ответов.\n\n"
+        "Я собрала в одном месте инструменты, через которые ты можешь увидеть:\n"
+        "1. что с тобой происходит;\n"
+        "2. почему это повторяется;\n"
+        "3. где ты теряешь себя;\n"
+        "4. куда уходит твоя энергия;\n"
+        "5. как начать это менять.\n\n"
+        "Сначала ты проходишь быстрый вход и видишь базовую картину.\n\n"
+        "А дальше открывается пространство глубже:\n"
+        "— практики\n"
+        "— родовые темы\n"
+        "— образы\n"
+        "— схемы\n"
+        "— роли\n"
+        "— внутренние части\n\n"
+        "Здесь можно быть в контакте с собой каждый день. Потому что жизнь — это исследование себя.\n\n"
+        "Это пространство создано для твоего самопознания, в которое можно возвращаться снова и снова."
+    )
+
     await update.message.reply_text(
-        "Привет. Меня зовут Наташа.\n\nНачнём.",
+        text,
         reply_markup=get_main_menu(user_id),
     )
 
@@ -149,7 +170,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     results = get_user_results(user_id)
     main_menu_markup = get_main_menu(user_id)
 
-    # 👇 сначала баланс
     handled_by_balance = await handle_balance_wheel_text(update, context)
     if handled_by_balance:
         return
