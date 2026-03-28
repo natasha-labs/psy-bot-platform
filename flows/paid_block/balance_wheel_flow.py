@@ -78,8 +78,6 @@ def _current_sphere(state: dict):
 
 
 def _current_question(state: dict):
-    if _is_finished(state):
-        return None
     idx = state["question_index"]
     if idx < 0 or idx >= len(QUESTIONS):
         return None
@@ -93,19 +91,6 @@ def _build_choice_keyboard(options):
     return InlineKeyboardMarkup(rows)
 
 
-def _build_find_resource_keyboard():
-    return InlineKeyboardMarkup(
-        [[InlineKeyboardButton("Найти ресурс", callback_data="bw_find_resource")]]
-    )
-
-
-def _build_resource_keyboard():
-    rows = []
-    for idx, sphere in enumerate(SPHERES):
-        rows.append([InlineKeyboardButton(sphere, callback_data=f"bw_resource:{idx}")])
-    return InlineKeyboardMarkup(rows)
-
-
 def _advance(state: dict):
     state["question_index"] += 1
     if state["question_index"] >= len(QUESTIONS):
@@ -113,31 +98,27 @@ def _advance(state: dict):
         state["sphere_index"] += 1
 
 
-def _append_history(state: dict, question_text: str, answer_text: str):
-    sphere = _current_sphere(state)
-    if sphere is None:
-        return
-
-    history = state["answers"].setdefault(
-        sphere,
-        {
+def _ensure_sphere_data(state: dict, sphere: str):
+    if sphere not in state["answers"]:
+        state["answers"][sphere] = {
             "summary_lines": [f"Сфера {state['sphere_index'] + 1} из {len(SPHERES)}: {sphere}", ""],
             "satisfaction": 1,
             "importance": 1,
             "action": 1,
             "meaning": "",
-        },
-    )
-
-    history["summary_lines"].append(question_text)
-    history["summary_lines"].append(f"Ответ: {answer_text}")
-    history["summary_lines"].append("")
+        }
 
 
-def _get_sphere_summary(state: dict, sphere: str) -> str:
-    info = state["answers"].get(sphere, {})
-    lines = info.get("summary_lines", [])
-    return "\n".join(lines).strip()
+def _append_summary(state: dict, sphere: str, question_text: str, answer_text: str):
+    _ensure_sphere_data(state, sphere)
+    state["answers"][sphere]["summary_lines"].append(question_text)
+    state["answers"][sphere]["summary_lines"].append(f"Ответ: {answer_text}")
+    state["answers"][sphere]["summary_lines"].append("")
+
+
+def _get_summary_text(state: dict, sphere: str) -> str:
+    _ensure_sphere_data(state, sphere)
+    return "\n".join(state["answers"][sphere]["summary_lines"]).strip()
 
 
 async def _send_current_step(chat_id: int, user_id, bot):
@@ -151,20 +132,16 @@ async def _send_current_step(chat_id: int, user_id, bot):
 
     sphere = _current_sphere(state)
     question = _current_question(state)
+
     if sphere is None or question is None:
         await _finish_wheel(chat_id, user_id, bot)
         return
 
-    summary = _get_sphere_summary(state, sphere)
-    header = f"Сфера {state['sphere_index'] + 1} из {len(SPHERES)}: {sphere}"
-
-    if not summary:
-        base_text = header
-    else:
-        base_text = summary
+    _ensure_sphere_data(state, sphere)
+    summary_text = _get_summary_text(state, sphere)
 
     if question["type"] == "choice":
-        text = f"{base_text}\n\n{question['question']}"
+        text = f"{summary_text}\n\n{question['question']}"
         await bot.send_message(
             chat_id=chat_id,
             text=text,
@@ -174,7 +151,7 @@ async def _send_current_step(chat_id: int, user_id, bot):
 
     hint = SPHERE_HINTS.get(sphere, "")
     text = (
-        f"{base_text}\n\n"
+        f"{summary_text}\n\n"
         f"{question['question']}\n\n"
         f"Можно ориентироваться на примеры: ({hint})"
     )
@@ -216,16 +193,13 @@ async def handle_balance_wheel_text(update: Update, context: ContextTypes.DEFAUL
     if not state:
         return False
 
-    if state.get("awaiting_resource"):
-        return False
-
     if state.get("finished"):
         return True
 
     question = _current_question(state)
     sphere = _current_sphere(state)
 
-    if question is None:
+    if question is None or sphere is None:
         await _finish_wheel(update.effective_chat.id, user_id, context.bot)
         return True
 
@@ -237,21 +211,12 @@ async def handle_balance_wheel_text(update: Update, context: ContextTypes.DEFAUL
         await update.message.reply_text("Напиши ответ обычным сообщением.")
         return True
 
-    state["answers"].setdefault(
-        sphere,
-        {
-            "summary_lines": [f"Сфера {state['sphere_index'] + 1} из {len(SPHERES)}: {sphere}", ""],
-            "satisfaction": 1,
-            "importance": 1,
-            "action": 1,
-            "meaning": "",
-        },
-    )
+    _ensure_sphere_data(state, sphere)
     state["answers"][sphere]["meaning"] = answer_text
-    _append_history(state, question["question"], answer_text)
+    _append_summary(state, sphere, question["question"], answer_text)
 
-    finished_this_sphere_text = _get_sphere_summary(state, sphere)
-    await update.message.reply_text(finished_this_sphere_text)
+    finished_sphere_text = _get_summary_text(state, sphere)
+    await update.message.reply_text(finished_sphere_text)
 
     _advance(state)
     _set_state(user_id, state)
@@ -277,86 +242,44 @@ async def handle_balance_wheel_callback(update: Update, context: ContextTypes.DE
     if not state:
         return False
 
-    if state.get("finished") and not data.startswith("bw_resource:") and data != "bw_find_resource":
+    if state.get("finished"):
         return True
 
-    if data.startswith("bw_choice:"):
-        question = _current_question(state)
-        sphere = _current_sphere(state)
+    if not data.startswith("bw_choice:"):
+        return False
 
-        if question is None or question["type"] != "choice" or sphere is None:
-            return True
+    sphere = _current_sphere(state)
+    question = _current_question(state)
 
-        idx = int(data.split(":")[1])
-        answer_text = question["options"][idx]
-        score = question["scores"][idx]
-
-        state["answers"].setdefault(
-            sphere,
-            {
-                "summary_lines": [f"Сфера {state['sphere_index'] + 1} из {len(SPHERES)}: {sphere}", ""],
-                "satisfaction": 1,
-                "importance": 1,
-                "action": 1,
-                "meaning": "",
-            },
-        )
-
-        state["answers"][sphere][question["key"]] = score
-        _append_history(state, question["question"], answer_text)
-
-        new_text = _get_sphere_summary(state, sphere)
-        try:
-            await query.edit_message_text(new_text)
-        except Exception:
-            pass
-
-        _advance(state)
-        _set_state(user_id, state)
-
-        if _is_finished(state):
-            await _finish_wheel(update.effective_chat.id, user_id, context.bot)
-            return True
-
-        await _send_current_step(update.effective_chat.id, user_id, context.bot)
+    if sphere is None or question is None:
+        await _finish_wheel(update.effective_chat.id, user_id, context.bot)
         return True
 
-    if data == "bw_find_resource":
-        state["awaiting_resource"] = True
-        _set_state(user_id, state)
-
-        try:
-            await query.edit_message_reply_markup(reply_markup=None)
-        except Exception:
-            pass
-
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="В какой сфере у тебя сейчас больше всего энергии?",
-            reply_markup=_build_resource_keyboard(),
-        )
+    if question["type"] != "choice":
         return True
 
-    if data.startswith("bw_resource:"):
-        idx = int(data.split(":")[1])
-        resource_area = SPHERES[idx]
+    idx = int(data.split(":")[1])
+    answer_text = question["options"][idx]
+    score = question["scores"][idx]
 
-        try:
-            await query.edit_message_text(
-                text=f"В какой сфере у тебя сейчас больше всего энергии?\nОтвет: {resource_area}"
-            )
-        except Exception:
-            pass
+    _ensure_sphere_data(state, sphere)
+    state["answers"][sphere][question["key"]] = score
+    _append_summary(state, sphere, question["question"], answer_text)
 
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=f"Твой ресурс сейчас: {resource_area}",
-        )
+    try:
+        await query.edit_message_text(_get_summary_text(state, sphere))
+    except Exception:
+        pass
 
-        _clear_state(user_id)
+    _advance(state)
+    _set_state(user_id, state)
+
+    if _is_finished(state):
+        await _finish_wheel(update.effective_chat.id, user_id, context.bot)
         return True
 
-    return False
+    await _send_current_step(update.effective_chat.id, user_id, context.bot)
+    return True
 
 
 async def _finish_wheel(chat_id: int, user_id, bot):
@@ -387,24 +310,13 @@ async def _finish_wheel(chat_id: int, user_id, bot):
         with open(image_path, "rb") as file:
             await bot.send_photo(chat_id=chat_id, photo=file)
 
-        await bot.send_message(
-            chat_id=chat_id,
-            text="Посмотри на свою картину жизни.",
-            reply_markup=_build_find_resource_keyboard(),
-        )
-        return
-
     except Exception:
-        await bot.send_message(
-            chat_id=chat_id,
-            text="Колесо не построилось.",
-        )
-        _clear_state(user_id)
-        return
-
+        await bot.send_message(chat_id=chat_id, text="Колесо не построилось.")
     finally:
         try:
             if image_path and os.path.exists(image_path):
                 os.remove(image_path)
         except Exception:
             pass
+
+        _clear_state(user_id)
