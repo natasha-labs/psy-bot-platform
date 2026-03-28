@@ -6,6 +6,8 @@ from telegram.ext import ContextTypes
 
 from tests.balance_wheel.questions import SPHERES
 from tests.balance_wheel.visual import generate_wheel
+from tests.balance_wheel.logic import find_main_problem
+from tests.balance_wheel.result import build_final_text
 
 BALANCE_WHEEL_STATE: Dict[str, Dict[str, Any]] = {}
 
@@ -91,6 +93,19 @@ def _build_choice_keyboard(options):
     return InlineKeyboardMarkup(rows)
 
 
+def _build_resource_keyboard():
+    rows = []
+    for idx, sphere in enumerate(SPHERES):
+        rows.append([InlineKeyboardButton(sphere, callback_data=f"bw_resource:{idx}")])
+    return InlineKeyboardMarkup(rows)
+
+
+def _build_find_resource_keyboard():
+    return InlineKeyboardMarkup(
+        [[InlineKeyboardButton("Найти ресурс", callback_data="bw_find_resource")]]
+    )
+
+
 def _advance(state: dict):
     state["question_index"] += 1
     if state["question_index"] >= len(QUESTIONS):
@@ -133,29 +148,22 @@ async def _send_current_step(chat_id: int, user_id, bot):
     sphere = _current_sphere(state)
     question = _current_question(state)
 
-    if sphere is None or question is None:
-        await _finish_wheel(chat_id, user_id, bot)
-        return
-
     _ensure_sphere_data(state, sphere)
     summary_text = _get_summary_text(state, sphere)
 
     if question["type"] == "choice":
-        text = f"{summary_text}\n\n{question['question']}"
         await bot.send_message(
             chat_id=chat_id,
-            text=text,
+            text=f"{summary_text}\n\n{question['question']}",
             reply_markup=_build_choice_keyboard(question["options"]),
         )
         return
 
     hint = SPHERE_HINTS.get(sphere, "")
-    text = (
-        f"{summary_text}\n\n"
-        f"{question['question']}\n\n"
-        f"Можно ориентироваться на примеры: ({hint})"
+    await bot.send_message(
+        chat_id=chat_id,
+        text=f"{summary_text}\n\n{question['question']}\n\nМожно ориентироваться на примеры: ({hint})"
     )
-    await bot.send_message(chat_id=chat_id, text=text)
 
 
 async def start_balance_wheel(message):
@@ -170,63 +178,13 @@ async def start_balance_wheel(message):
         "sphere_index": 0,
         "question_index": 0,
         "answers": {},
-        "awaiting_resource": False,
-        "finished": False,
+        "phase": "survey",
         "wheel_sent": False,
     }
     _set_state(user_id, state)
 
-    await bot.send_message(
-        chat_id=message.chat_id,
-        text="Колесо баланса",
-    )
-
+    await bot.send_message(chat_id=message.chat_id, text="Колесо баланса")
     await _send_current_step(message.chat_id, user_id, bot)
-
-
-async def handle_balance_wheel_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    if not update.message or not update.effective_user:
-        return False
-
-    user_id = update.effective_user.id
-    state = _get_state(user_id)
-    if not state:
-        return False
-
-    if state.get("finished"):
-        return True
-
-    question = _current_question(state)
-    sphere = _current_sphere(state)
-
-    if question is None or sphere is None:
-        await _finish_wheel(update.effective_chat.id, user_id, context.bot)
-        return True
-
-    if question["type"] != "text":
-        return False
-
-    answer_text = (update.message.text or "").strip()
-    if not answer_text:
-        await update.message.reply_text("Напиши ответ обычным сообщением.")
-        return True
-
-    _ensure_sphere_data(state, sphere)
-    state["answers"][sphere]["meaning"] = answer_text
-    _append_summary(state, sphere, question["question"], answer_text)
-
-    finished_sphere_text = _get_summary_text(state, sphere)
-    await update.message.reply_text(finished_sphere_text)
-
-    _advance(state)
-    _set_state(user_id, state)
-
-    if _is_finished(state):
-        await _finish_wheel(update.effective_chat.id, user_id, context.bot)
-        return True
-
-    await _send_current_step(update.effective_chat.id, user_id, context.bot)
-    return True
 
 
 async def handle_balance_wheel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
@@ -239,84 +197,80 @@ async def handle_balance_wheel_callback(update: Update, context: ContextTypes.DE
     data = query.data or ""
     user_id = user.id
     state = _get_state(user_id)
+
     if not state:
         return False
 
-    if state.get("finished"):
-        return True
+    if data.startswith("bw_choice:"):
+        sphere = _current_sphere(state)
+        question = _current_question(state)
 
-    if not data.startswith("bw_choice:"):
-        return False
+        idx = int(data.split(":")[1])
+        answer_text = question["options"][idx]
+        score = question["scores"][idx]
 
-    sphere = _current_sphere(state)
-    question = _current_question(state)
+        _ensure_sphere_data(state, sphere)
+        state["answers"][sphere][question["key"]] = score
+        _append_summary(state, sphere, question["question"], answer_text)
 
-    if sphere is None or question is None:
-        await _finish_wheel(update.effective_chat.id, user_id, context.bot)
-        return True
-
-    if question["type"] != "choice":
-        return True
-
-    idx = int(data.split(":")[1])
-    answer_text = question["options"][idx]
-    score = question["scores"][idx]
-
-    _ensure_sphere_data(state, sphere)
-    state["answers"][sphere][question["key"]] = score
-    _append_summary(state, sphere, question["question"], answer_text)
-
-    try:
         await query.edit_message_text(_get_summary_text(state, sphere))
-    except Exception:
-        pass
 
-    _advance(state)
-    _set_state(user_id, state)
+        _advance(state)
 
-    if _is_finished(state):
-        await _finish_wheel(update.effective_chat.id, user_id, context.bot)
+        if _is_finished(state):
+            await _finish_wheel(update.effective_chat.id, user_id, context.bot)
+            return True
+
+        await _send_current_step(update.effective_chat.id, user_id, context.bot)
         return True
 
-    await _send_current_step(update.effective_chat.id, user_id, context.bot)
-    return True
+    if data == "bw_find_resource":
+        state["phase"] = "resource"
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="В какой сфере у тебя сейчас больше всего энергии?",
+            reply_markup=_build_resource_keyboard(),
+        )
+        return True
+
+    if data.startswith("bw_resource:"):
+        idx = int(data.split(":")[1])
+        resource_area = SPHERES[idx]
+        main_problem = find_main_problem(state["answers"])
+
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=build_final_text(main_problem, resource_area),
+        )
+
+        _clear_state(user_id)
+        return True
+
+    return False
 
 
 async def _finish_wheel(chat_id: int, user_id, bot):
     state = _get_state(user_id)
-    if not state:
+    if not state or state.get("wheel_sent"):
         return
 
-    if state.get("wheel_sent"):
-        return
-
-    state["finished"] = True
     state["wheel_sent"] = True
     _set_state(user_id, state)
 
-    image_path = None
+    chart_data = {
+        sphere: state["answers"].get(sphere, {}).get("satisfaction", 1)
+        for sphere in SPHERES
+    }
 
-    try:
-        chart_data = {}
-        for sphere in SPHERES:
-            values = state["answers"].get(sphere, {})
-            chart_data[sphere] = values.get("satisfaction", 1)
+    image_path = generate_wheel(chart_data)
 
-        image_path = generate_wheel(chart_data)
+    with open(image_path, "rb") as file:
+        await bot.send_photo(chat_id=chat_id, photo=file)
 
-        if not image_path or not os.path.exists(image_path):
-            raise RuntimeError("Колесо не построилось")
+    await bot.send_message(
+        chat_id=chat_id,
+        text="Посмотри на своё колесо",
+        reply_markup=_build_find_resource_keyboard(),
+    )
 
-        with open(image_path, "rb") as file:
-            await bot.send_photo(chat_id=chat_id, photo=file)
-
-    except Exception:
-        await bot.send_message(chat_id=chat_id, text="Колесо не построилось.")
-    finally:
-        try:
-            if image_path and os.path.exists(image_path):
-                os.remove(image_path)
-        except Exception:
-            pass
-
-        _clear_state(user_id)
+    os.remove(image_path)
