@@ -7,7 +7,6 @@ from telegram.ext import ContextTypes
 from tests.balance_wheel.questions import SPHERES
 from tests.balance_wheel.logic import find_main_problem
 from tests.balance_wheel.result import build_final_text
-from tests.balance_wheel.visual import generate_wheel
 
 try:
     from storage.results_store import load_results, save_results
