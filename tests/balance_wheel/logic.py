@@ -30,7 +30,7 @@ def find_main_problem(data: dict):
         )
         return priority_list[0]["sphere"]
 
-    # fallback
+    # fallback (добавил action в сортировку — по ТЗ)
     candidates.sort(
         key=lambda x: (-x["importance"], x["satisfaction"], x["action"])
     )
