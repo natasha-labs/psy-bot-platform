@@ -1,16 +1,15 @@
-import tempfile
-
-
-def generate_wheel(data: dict) -> str:
-    text = "Колесо баланса:\n\n"
-
-    for k, v in data.items():
-        text += f"{k}: {v}\n"
-
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".txt")
-    path = temp_file.name
-
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(text)
-
-    return path
+def build_final_text(main_problem: str, resource_area: str) -> str:
+    return (
+        f"Сейчас у тебя есть разрыв.\n\n"
+        f"Важно: {main_problem}.\n"
+        f"Но живёшь ты больше в: {resource_area}.\n\n"
+        f"Это не про слабость. Это про распределение внимания.\n\n"
+        f"Пока энергия уходит туда, где легче, то, что важно — будет откладываться, даже если ты правда этого хочешь.\n\n"
+        f"Не нужно менять всё.\n\n"
+        f"Попробуй сегодня просто сделать одно маленькое действие в этой сфере — без ожиданий, без результата, просто вернуть туда внимание.\n\n"
+        f"Ресурс у тебя есть. Вопрос только — куда ты его направляешь.\n\n"
+        f"Ты можешь продолжить исследовать себя дальше в любом из разделов бота.\n\n"
+        f"Скоро здесь появятся новые практики:\n"
+        f"— медитации\n"
+        f"— дыхательные техники"
+    )
