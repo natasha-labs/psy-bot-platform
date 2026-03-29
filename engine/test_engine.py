@@ -1,5 +1,6 @@
 import asyncio
 import random
+from collections import defaultdict
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
 from storage.results_store import save_user_result, get_user_results
@@ -16,7 +17,45 @@ TEST_ORDER = ["anxiety", "archetype", "shadow"]
 def select_random_questions(question_bank, count=15):
     if len(question_bank) <= count:
         return question_bank[:]
-    return random.sample(question_bank, count)
+
+    has_axis = all("axis" in q for q in question_bank)
+
+    if not has_axis:
+        return random.sample(question_bank, count)
+
+    groups = defaultdict(list)
+    for q in question_bank:
+        groups[q["axis"]].append(q)
+
+    for axis in groups:
+        random.shuffle(groups[axis])
+
+    selected = []
+    recent_axes = []
+
+    while len(selected) < count:
+        available_axes = [axis for axis, items in groups.items() if items]
+        if not available_axes:
+            break
+
+        non_repeating_axes = [axis for axis in available_axes if axis not in recent_axes[-1:]]
+        candidate_axes = non_repeating_axes if non_repeating_axes else available_axes
+
+        candidate_axes.sort(key=lambda axis: len(groups[axis]), reverse=True)
+        chosen_axis = candidate_axes[0]
+
+        question = groups[chosen_axis].pop()
+        selected.append(question)
+        recent_axes.append(chosen_axis)
+
+    if len(selected) < count:
+        leftovers = []
+        for items in groups.values():
+            leftovers.extend(items)
+        random.shuffle(leftovers)
+        selected.extend(leftovers[: count - len(selected)])
+
+    return selected[:count]
 
 
 def get_entry_keyboard():
@@ -143,7 +182,6 @@ async def send_post_result_flow(update, context, main_menu_markup, test_def, res
     results = get_user_results(user_id)
     remaining = get_remaining_tests(results)
 
-    # После 1 и 2 теста
     if remaining:
         await context.bot.send_message(
             chat_id=chat_id,
@@ -164,7 +202,6 @@ async def send_post_result_flow(update, context, main_menu_markup, test_def, res
         )
         return
 
-    # После 3 тестов
     if enough_for_basic_personality_code(results):
         await context.bot.send_message(
             chat_id=chat_id,
