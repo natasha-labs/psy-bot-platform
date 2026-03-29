@@ -156,11 +156,16 @@ async def send_post_result_flow(update, context, main_menu_markup, test_def, res
             text="Продолжить исследование и собрать полный код личности",
             reply_markup=get_continue_keyboard(),
         )
+
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="Ты можешь пройти тест заново в любой момент.",
+            reply_markup=main_menu_markup,
+        )
         return
 
     # После 3 тестов
     if enough_for_basic_personality_code(results):
-        # Сначала показываем результат последнего теста
         await context.bot.send_message(
             chat_id=chat_id,
             text=result_text,
@@ -181,6 +186,12 @@ async def send_post_result_flow(update, context, main_menu_markup, test_def, res
             text=final_text,
             parse_mode="Markdown",
             reply_markup=get_learn_more_keyboard(),
+        )
+
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="Ты можешь пройти первый блок заново в любой момент.",
+            reply_markup=main_menu_markup,
         )
         return
 
