@@ -61,7 +61,7 @@ def select_random_questions(question_bank, count=15):
 def get_entry_keyboard():
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("Начать исследование", callback_data="choose_test_menu")]
+            [InlineKeyboardButton("Начать исследование", callback_data="start_sequence")]
         ]
     )
 
@@ -73,33 +73,16 @@ def get_question_keyboard(scale):
     return InlineKeyboardMarkup(rows)
 
 
-def get_test_selection_keyboard(available_tests=None):
-    mapping = {
-        "anxiety": "Тревога",
-        "archetype": "Архетип личности",
-        "shadow": "Теневой профиль",
-    }
-
-    rows = []
-    for key in TEST_ORDER:
-        if available_tests is not None and key not in available_tests:
-            continue
-        rows.append([InlineKeyboardButton(mapping[key], callback_data=f"start:{key}")])
-
-    return InlineKeyboardMarkup(rows)
-
-
-def get_continue_keyboard():
-    return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("Пройти следующий тест", callback_data="next_test")]
-        ]
-    )
-
-
 def get_remaining_tests(results):
     completed = set(results.keys())
     return [key for key in TEST_ORDER if key not in completed]
+
+
+def get_next_test_key(results):
+    remaining = get_remaining_tests(results)
+    if not remaining:
+        return None
+    return remaining[0]
 
 
 def build_question_text(title: str, total: int, index: int, question_text: str) -> str:
@@ -112,24 +95,10 @@ def build_question_text(title: str, total: int, index: int, question_text: str) 
 
 
 async def send_entry_screen(update, context, main_menu_markup):
-    await send_test_selection_screen(update, context)
-
-
-async def send_test_selection_screen(update, context, results=None):
-    available = None
-
-    if results is not None:
-        available = get_remaining_tests(results)
-
-    if available is not None and len(available) == 1:
-        text = "Остался последний тест"
-    else:
-        text = "Выбери, с чего начать:"
-
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text=text,
-        reply_markup=get_test_selection_keyboard(available),
+        text="Для исследования себя пройди все три теста. Это займет несколько минут.",
+        reply_markup=get_entry_keyboard(),
     )
 
 
@@ -165,7 +134,7 @@ async def send_question(update, context, test_def, index: int):
     context.user_data["last_question_message_id"] = msg.message_id
 
 
-async def send_post_result_flow(update, context, main_menu_markup, test_def, result_text, profile_payload):
+async def send_post_result_flow(update, context, main_menu_markup, test_def, result_text, profile_payload, tests):
     chat_id = update.effective_chat.id
     user = update.effective_user
     user_id = user.id if user else "unknown"
@@ -180,35 +149,25 @@ async def send_post_result_flow(update, context, main_menu_markup, test_def, res
     )
 
     results = get_user_results(user_id)
-    remaining = get_remaining_tests(results)
+    next_test_key = get_next_test_key(results)
 
-    if remaining:
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=result_text,
+        parse_mode="Markdown",
+    )
+
+    if next_test_key:
         await context.bot.send_message(
             chat_id=chat_id,
-            text=result_text,
-            parse_mode="Markdown",
+            text="Ты прошёл часть пути. Давай продолжим — следующий шаг дополнит картину.",
         )
 
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text="Продолжить исследование и собрать полный код личности",
-            reply_markup=get_continue_keyboard(),
-        )
-
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text="Ты можешь пройти тест заново в любой момент.",
-            reply_markup=main_menu_markup,
-        )
+        await asyncio.sleep(0.35)
+        await begin_test(update, context, next_test_key, tests[next_test_key])
         return
 
     if enough_for_basic_personality_code(results):
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=result_text,
-            parse_mode="Markdown",
-        )
-
         payload = build_basic_personality_code(results)
         code_text = render_basic_personality_code(payload)
 
@@ -234,8 +193,7 @@ async def send_post_result_flow(update, context, main_menu_markup, test_def, res
 
     await context.bot.send_message(
         chat_id=chat_id,
-        text=result_text,
-        parse_mode="Markdown",
+        text="Ты можешь пройти первый блок заново в любой момент.",
         reply_markup=main_menu_markup,
     )
 
@@ -249,36 +207,22 @@ async def handle_callback(update, context, main_menu_markup, tests):
     user_id = user.id if user else "unknown"
     results = get_user_results(user_id)
 
-    if data == "choose_test_menu":
+    if data == "start_sequence":
         try:
             await query.edit_message_reply_markup(reply_markup=None)
         except Exception:
             pass
 
-        await send_test_selection_screen(update, context)
-        return
-
-    if data == "next_test":
-        try:
-            await query.edit_message_reply_markup(reply_markup=None)
-        except Exception:
-            pass
-
-        await send_test_selection_screen(update, context, results=results)
-        return
-
-    if data.startswith("start:"):
-        test_key = data.split(":", 1)[1]
-
-        if test_key not in tests:
+        next_test_key = get_next_test_key(results)
+        if not next_test_key:
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text="Все три теста уже пройдены. Ты можешь пройти первый блок заново.",
+                reply_markup=main_menu_markup,
+            )
             return
 
-        try:
-            await query.edit_message_reply_markup(reply_markup=None)
-        except Exception:
-            pass
-
-        await begin_test(update, context, test_key, tests[test_key])
+        await begin_test(update, context, next_test_key, tests[next_test_key])
         return
 
     if data.startswith("offer:"):
@@ -340,6 +284,7 @@ async def handle_callback(update, context, main_menu_markup, tests):
             test_def=test_def,
             result_text=result_text,
             profile_payload=profile_payload,
+            tests=tests,
         )
         return
 
