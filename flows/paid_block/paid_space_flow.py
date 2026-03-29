@@ -81,6 +81,12 @@ async def send_tool_stub(update, context, tool_name: str):
     user = update.effective_user
     user_id = user.id if user else None
 
+    # 👇 ВАЖНО: МАК не должен идти в stub
+    if tool_name == "🃏 Метафорические карты (МАК)":
+        from flows.paid_block.mak_flow import send_mak_entry
+        await send_mak_entry(update, context)
+        return
+
     text = (
         f"{tool_name}\n\n"
         "Этот инструмент сейчас в разработке.\n"
