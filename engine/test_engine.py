@@ -97,7 +97,7 @@ def build_question_text(title: str, total: int, index: int, question_text: str) 
 async def send_entry_screen(update, context, main_menu_markup):
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text="Для исследования себя пройди все три теста. Это займет несколько минут.",
+        text="Для исследования себя пройди три теста:\n\n— Уровень тревоги\n— Архетип личности\n— Теневая сторона\n\nЭто займет несколько минут.",
         reply_markup=get_entry_keyboard(),
     )
 
