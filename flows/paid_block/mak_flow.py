@@ -1,8 +1,17 @@
+import os
 import random
+from datetime import datetime
+
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, InputFile
 
 from mak.cards_loader import load_cards
 from mak.texts import DECK_TEXTS
+
+try:
+    from storage.results_store import load_results, save_results
+except Exception:
+    load_results = None
+    save_results = None
 
 decks_cache = None
 
@@ -29,6 +38,73 @@ def get_mak_result_keyboard():
     )
 
 
+def _pick_random_card():
+    decks = get_decks()
+
+    valid_decks = []
+    for deck, images in decks.items():
+        if not images:
+            continue
+        if deck not in DECK_TEXTS:
+            continue
+        if not DECK_TEXTS[deck].get("meaning"):
+            continue
+        if not DECK_TEXTS[deck].get("questions"):
+            continue
+        valid_decks.append(deck)
+
+    if not valid_decks:
+        return None
+
+    deck = random.choice(valid_decks)
+    image_path = random.choice(decks[deck])
+    question = random.choice(DECK_TEXTS[deck]["questions"])
+
+    return {
+        "deck": deck,
+        "image_path": image_path,
+        "meaning": DECK_TEXTS[deck]["meaning"],
+        "question": question,
+        "image_filename": os.path.basename(image_path),
+    }
+
+
+def _save_mak_history(user_id, card_data):
+    if load_results is None or save_results is None:
+        return
+
+    try:
+        data = load_results()
+        uid = str(user_id)
+
+        if uid not in data:
+            data[uid] = {
+                "user_id": user_id,
+                "completed_tests": [],
+                "results": {},
+                "paid_access": False,
+            }
+
+        if "results" not in data[uid]:
+            data[uid]["results"] = {}
+
+        if "mak_history" not in data[uid]["results"]:
+            data[uid]["results"]["mak_history"] = []
+
+        data[uid]["results"]["mak_history"].append(
+            {
+                "timestamp": datetime.utcnow().isoformat(),
+                "theme": card_data["deck"],
+                "image_filename": card_data["image_filename"],
+                "question": card_data["question"],
+            }
+        )
+
+        save_results(data)
+    except Exception:
+        pass
+
+
 async def send_mak_entry(update, context):
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
@@ -42,48 +118,31 @@ async def send_mak_entry(update, context):
     )
 
 
-def pick_random_card(decks):
-    valid_decks = []
+async def _send_mak_card(update, context):
+    chat_id = update.effective_chat.id
+    user = update.effective_user
+    user_id = user.id if user else "unknown"
 
-    for deck, images in decks.items():
-        if not images:
-            continue
-        if deck not in DECK_TEXTS:
-            continue
-        valid_decks.append(deck)
+    card_data = _pick_random_card()
 
-    if not valid_decks:
-        return None, None
-
-    deck = random.choice(valid_decks)
-    image = random.choice(decks[deck])
-
-    return deck, image
-
-
-async def send_mak_card(update, context):
-    decks = get_decks()
-
-    deck, image_path = pick_random_card(decks)
-
-    if not image_path:
+    if not card_data:
         await context.bot.send_message(
-            chat_id=update.effective_chat.id,
+            chat_id=chat_id,
             text="Сейчас карты временно недоступны. Попробуй позже.",
         )
         return
 
-    text_data = DECK_TEXTS.get(deck, {})
-    meaning = text_data.get("meaning", "")
-    questions = text_data.get("questions", [])
+    _save_mak_history(user_id, card_data)
 
-    question = random.choice(questions) if questions else ""
+    caption = (
+        f"{card_data['meaning']}\n\n"
+        f"*Вопрос для тебя:*\n"
+        f"{card_data['question']}"
+    )
 
-    caption = f"{meaning}\n\n*Вопрос для тебя:*\n{question}"
-
-    with open(image_path, "rb") as photo:
+    with open(card_data["image_path"], "rb") as photo:
         await context.bot.send_photo(
-            chat_id=update.effective_chat.id,
+            chat_id=chat_id,
             photo=InputFile(photo),
             caption=caption,
             parse_mode="Markdown",
@@ -93,7 +152,10 @@ async def send_mak_card(update, context):
 
 async def handle_mak_callback(update, context):
     query = update.callback_query
-    data = query.data
+    if not query:
+        return False
+
+    data = query.data or ""
 
     if data == "mak_draw":
         try:
@@ -101,7 +163,7 @@ async def handle_mak_callback(update, context):
         except Exception:
             pass
 
-        await send_mak_card(update, context)
+        await _send_mak_card(update, context)
         return True
 
     if data == "mak_finish":
@@ -109,7 +171,6 @@ async def handle_mak_callback(update, context):
             await query.edit_message_reply_markup(reply_markup=None)
         except Exception:
             pass
-
         return True
 
     return False
