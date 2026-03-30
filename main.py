@@ -20,6 +20,7 @@ from flows.paid_block.balance_wheel_flow import (
     _clear_state as clear_balance_wheel_state,
 )
 from flows.paid_block.deep_profile_flow import handle_paid_callback
+from flows.paid_block.mak_flow import send_mak_entry, handle_mak_callback
 from flows.paid_block.paid_access import has_paid_access
 from flows.paid_block.payment_flow import (
     send_deep_profile_invoice,
@@ -141,7 +142,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "3. где ты теряешь себя;\n"
         "4. куда уходит твоя энергия;\n"
         "5. как начать это менять.\n\n"
-        "Сначала ты проходишь быстрый вход и видишь базовую картину.\n\n"
+        "Сначала ты проходишь 3 коротких теста и видишь базовую картину - свою Тень, свой Архитип и уровень тревожности.\n\n"
         "А дальше открывается пространство глубже:\n"
         "— практики\n"
         "— родовые темы\n"
@@ -185,6 +186,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "QA: открыть пространство",
         "Сбросить мои тесты",
         "⚖️ Колесо баланса",
+        "🃏 Метафорические карты (МАК)",
     } or is_space_tool_text(text):
         clear_balance_wheel_state(user_id)
 
@@ -202,6 +204,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == "⚖️ Колесо баланса":
         await start_balance_wheel(update.message)
+        return
+
+    if text == "🃏 Метафорические карты (МАК)":
+        await send_mak_entry(update, context)
         return
 
     if is_space_tool_text(text):
@@ -301,6 +307,10 @@ async def handle_all_callbacks(update: Update, context: ContextTypes.DEFAULT_TYP
     user = update.effective_user
     user_id = user.id if user else "unknown"
 
+    handled_by_mak = await handle_mak_callback(update, context)
+    if handled_by_mak:
+        return
+
     handled_by_balance = await handle_balance_wheel_callback(update, context)
     if handled_by_balance:
         return
@@ -339,6 +349,7 @@ async def handle_all_callbacks(update: Update, context: ContextTypes.DEFAULT_TYP
 
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
+    app.bot_data["tests"] = TESTS
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(handle_all_callbacks))
