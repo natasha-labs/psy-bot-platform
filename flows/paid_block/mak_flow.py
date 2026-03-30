@@ -1,17 +1,9 @@
 import os
 import random
-from datetime import datetime
-
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, InputFile
 
 from mak.cards_loader import load_cards
 from mak.texts import DECK_TEXTS
-
-try:
-    from storage.results_store import load_results, save_results
-except Exception:
-    load_results = None
-    save_results = None
 
 decks_cache = None
 
@@ -23,154 +15,170 @@ def get_decks():
     return decks_cache
 
 
-def get_mak_entry_keyboard():
+# ---------- KEYBOARDS ----------
+
+def start_keyboard():
     return InlineKeyboardMarkup(
-        [[InlineKeyboardButton("Вытянуть карту", callback_data="mak_draw")]]
+        [[InlineKeyboardButton("Вытянуть первую карту", callback_data="mak_1")]]
     )
 
 
-def get_mak_result_keyboard():
+def reveal_keyboard(step):
     return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("Ещё карта", callback_data="mak_draw")],
-            [InlineKeyboardButton("Завершить", callback_data="mak_finish")],
-        ]
+        [[InlineKeyboardButton("Получить значение карты", callback_data=f"mak_reveal_{step}")]]
     )
 
 
-def _pick_random_card():
+def next_keyboard(step):
+    if step == 1:
+        return InlineKeyboardMarkup([
+            [InlineKeyboardButton("Вытянуть вторую карту", callback_data="mak_2")],
+            [InlineKeyboardButton("Завершить", callback_data="mak_finish")]
+        ])
+    if step == 2:
+        return InlineKeyboardMarkup([
+            [InlineKeyboardButton("Вытянуть третью карту", callback_data="mak_3")],
+            [InlineKeyboardButton("Завершить", callback_data="mak_finish")]
+        ])
+
+
+def final_keyboard():
+    return InlineKeyboardMarkup(
+        [[InlineKeyboardButton("Сделать новый расклад", callback_data="mak_restart")]]
+    )
+
+
+# ---------- LOGIC ----------
+
+def pick_card():
     decks = get_decks()
 
-    valid_decks = []
-    for deck, images in decks.items():
-        if not images:
-            continue
-        if deck not in DECK_TEXTS:
-            continue
-        if not DECK_TEXTS[deck].get("meaning"):
-            continue
-        if not DECK_TEXTS[deck].get("questions"):
-            continue
-        valid_decks.append(deck)
-
-    if not valid_decks:
+    valid = [d for d in decks if d in DECK_TEXTS and decks[d]]
+    if not valid:
         return None
 
-    deck = random.choice(valid_decks)
-    image_path = random.choice(decks[deck])
-    question = random.choice(DECK_TEXTS[deck]["questions"])
+    deck = random.choice(valid)
+    image = random.choice(decks[deck])
 
     return {
         "deck": deck,
-        "image_path": image_path,
+        "image": image,
         "meaning": DECK_TEXTS[deck]["meaning"],
-        "question": question,
-        "image_filename": os.path.basename(image_path),
+        "question": random.choice(DECK_TEXTS[deck]["questions"])
     }
 
 
-def _save_mak_history(user_id, card_data):
-    if load_results is None or save_results is None:
-        return
-
-    try:
-        data = load_results()
-        uid = str(user_id)
-
-        if uid not in data:
-            data[uid] = {
-                "user_id": user_id,
-                "completed_tests": [],
-                "results": {},
-                "paid_access": False,
-            }
-
-        if "results" not in data[uid]:
-            data[uid]["results"] = {}
-
-        if "mak_history" not in data[uid]["results"]:
-            data[uid]["results"]["mak_history"] = []
-
-        data[uid]["results"]["mak_history"].append(
-            {
-                "timestamp": datetime.utcnow().isoformat(),
-                "theme": card_data["deck"],
-                "image_filename": card_data["image_filename"],
-                "question": card_data["question"],
-            }
-        )
-
-        save_results(data)
-    except Exception:
-        pass
-
+# ---------- ENTRY ----------
 
 async def send_mak_entry(update, context):
+    context.user_data["mak_step"] = 0
+    context.user_data["mak_cards"] = []
+
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=(
             "*Метафорические карты*\n\n"
             "Иногда одна карта попадает точнее, чем длинный разговор.\n"
-            "Вытяни карту и посмотри, что она откроет тебе сейчас."
+            "Подумай сейчас о том что тебя больше всего волнует\n"
+            "Вытяни 3 карты и посмотри, что они откроют тебе."
         ),
         parse_mode="Markdown",
-        reply_markup=get_mak_entry_keyboard(),
+        reply_markup=start_keyboard(),
     )
 
 
-async def _send_mak_card(update, context):
-    chat_id = update.effective_chat.id
-    user = update.effective_user
-    user_id = user.id if user else "unknown"
+# ---------- SEND CARD ----------
 
-    card_data = _pick_random_card()
+async def send_card(update, context, step):
+    card = pick_card()
 
-    if not card_data:
+    if not card:
         await context.bot.send_message(
-            chat_id=chat_id,
-            text="Сейчас карты временно недоступны. Попробуй позже.",
+            chat_id=update.effective_chat.id,
+            text="Карты временно недоступны",
         )
         return
 
-    _save_mak_history(user_id, card_data)
+    context.user_data["mak_cards"].append(card)
+    context.user_data["mak_step"] = step
 
-    caption = (
-        f"{card_data['meaning']}\n\n"
-        f"*Вопрос для тебя:*\n"
-        f"{card_data['question']}"
-    )
-
-    with open(card_data["image_path"], "rb") as photo:
+    with open(card["image"], "rb") as photo:
         await context.bot.send_photo(
-            chat_id=chat_id,
+            chat_id=update.effective_chat.id,
             photo=InputFile(photo),
-            caption=caption,
-            parse_mode="Markdown",
-            reply_markup=get_mak_result_keyboard(),
+            caption="Посмотри внимательно на карту.\nЧто ты чувствуешь?",
+            reply_markup=reveal_keyboard(step),
         )
 
 
+# ---------- REVEAL ----------
+
+async def reveal_card(update, context, step):
+    card = context.user_data["mak_cards"][step - 1]
+
+    text = (
+        f"{card['meaning']}\n\n"
+        f"*Вопрос:*\n{card['question']}"
+    )
+
+    if step == 3:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=(
+                f"{text}\n\n"
+                "Это был твой расклад на ситуацию.\n\n"
+                "Не спеши искать правильный ответ.\n"
+                "Сначала просто посмотри, что внутри отзывается."
+            ),
+            parse_mode="Markdown",
+            reply_markup=final_keyboard(),
+        )
+    else:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=text,
+            parse_mode="Markdown",
+            reply_markup=next_keyboard(step),
+        )
+
+
+# ---------- CALLBACK ----------
+
 async def handle_mak_callback(update, context):
     query = update.callback_query
-    if not query:
-        return False
+    data = query.data
 
-    data = query.data or ""
+    try:
+        await query.edit_message_reply_markup(None)
+    except:
+        pass
 
-    if data == "mak_draw":
-        try:
-            await query.edit_message_reply_markup(reply_markup=None)
-        except Exception:
-            pass
-
-        await _send_mak_card(update, context)
+    if data == "mak_restart":
+        await send_mak_entry(update, context)
         return True
 
     if data == "mak_finish":
-        try:
-            await query.edit_message_reply_markup(reply_markup=None)
-        except Exception:
-            pass
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Ты можешь вернуться к этому позже.",
+        )
+        return True
+
+    if data == "mak_1":
+        await send_card(update, context, 1)
+        return True
+
+    if data == "mak_2":
+        await send_card(update, context, 2)
+        return True
+
+    if data == "mak_3":
+        await send_card(update, context, 3)
+        return True
+
+    if data.startswith("mak_reveal_"):
+        step = int(data.split("_")[-1])
+        await reveal_card(update, context, step)
         return True
 
     return False
