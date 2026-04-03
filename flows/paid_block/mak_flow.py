@@ -1,9 +1,7 @@
-import os
 import random
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, InputFile
 
 from mak.cards_loader import load_cards
-from mak.texts import DECK_TEXTS
 
 decks_cache = None
 
@@ -15,134 +13,156 @@ def get_decks():
     return decks_cache
 
 
-# ---------- KEYBOARDS ----------
+# ================== STATE ==================
+
+def reset_state(context):
+    context.user_data["mak"] = {
+        "step": "start",
+        "card": None,
+        "type": None,
+        "base": None,
+        "sub": None,
+        "life": None,
+    }
+
+
+def get_state(context):
+    return context.user_data.get("mak", {})
+
+
+# ================== KEYBOARDS ==================
 
 def start_keyboard():
-    return InlineKeyboardMarkup(
-        [[InlineKeyboardButton("Вытянуть первую карту", callback_data="mak_1")]]
-    )
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("Вытянуть карту", callback_data="mak_draw")]
+    ])
 
 
-def reveal_keyboard(step):
-    return InlineKeyboardMarkup(
-        [[InlineKeyboardButton("Получить значение карты", callback_data=f"mak_reveal_{step}")]]
-    )
+def type_keyboard():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("Чувство", callback_data="mak_type_feeling")],
+        [InlineKeyboardButton("Мысль", callback_data="mak_type_thought")],
+        [InlineKeyboardButton("Образ", callback_data="mak_type_image")],
+        [InlineKeyboardButton("Воспоминание", callback_data="mak_type_memory")],
+    ])
 
 
-def next_keyboard(step):
-    if step == 1:
-        return InlineKeyboardMarkup([
-            [InlineKeyboardButton("Вытянуть вторую карту", callback_data="mak_2")],
-            [InlineKeyboardButton("Завершить", callback_data="mak_finish")]
-        ])
-    if step == 2:
-        return InlineKeyboardMarkup([
-            [InlineKeyboardButton("Вытянуть третью карту", callback_data="mak_3")],
-            [InlineKeyboardButton("Завершить", callback_data="mak_finish")]
-        ])
+def feeling_keyboard():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("Напряжение", callback_data="mak_base_tension")],
+        [InlineKeyboardButton("Спокойствие", callback_data="mak_base_calm")],
+        [InlineKeyboardButton("Тепло", callback_data="mak_base_warm")],
+        [InlineKeyboardButton("Тяжесть", callback_data="mak_base_heavy")],
+        [InlineKeyboardButton("Пустота", callback_data="mak_base_empty")],
+    ])
+
+
+def sub_keyboard(base):
+    mapping = {
+        "tension": ["Тревога", "Раздражение", "Страх", "Давление", "Беспокойство"],
+        "warm": ["Любовь", "Радость", "Нежность", "Уют", "Благодарность"],
+        "heavy": ["Усталость", "Грусть", "Апатия", "Перегруз", "Опустошение"],
+        "calm": ["Равновесие", "Принятие", "Уверенность", "Расслабленность", "Отпускание"],
+        "empty": ["Отстранённость", "Потерянность", "Отключённость", "Безразличие", "Зависание"],
+    }
+
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(x, callback_data=f"mak_sub_{x}")]
+        for x in mapping.get(base, [])
+    ])
+
+
+def life_keyboard():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("Я сам", callback_data="mak_life_self")],
+        [InlineKeyboardButton("Отношения", callback_data="mak_life_rel")],
+        [InlineKeyboardButton("Моё состояние", callback_data="mak_life_state")],
+        [InlineKeyboardButton("Выбор / решение", callback_data="mak_life_choice")],
+        [InlineKeyboardButton("Не понимаю", callback_data="mak_life_none")],
+    ])
 
 
 def final_keyboard():
-    return InlineKeyboardMarkup(
-        [[InlineKeyboardButton("Сделать новый расклад", callback_data="mak_restart")]]
-    )
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("Вытянуть ещё карту", callback_data="mak_draw")],
+        [InlineKeyboardButton("Завершить", callback_data="mak_finish")],
+    ])
 
 
-# ---------- LOGIC ----------
+# ================== CARD ==================
 
 def pick_card():
     decks = get_decks()
+    valid = [d for d in decks if decks[d]]
 
-    valid = [d for d in decks if d in DECK_TEXTS and decks[d]]
     if not valid:
         return None
 
     deck = random.choice(valid)
-    image = random.choice(decks[deck])
-
-    return {
-        "deck": deck,
-        "image": image,
-        "meaning": DECK_TEXTS[deck]["meaning"],
-        "question": random.choice(DECK_TEXTS[deck]["questions"])
-    }
+    return random.choice(decks[deck])
 
 
-# ---------- ENTRY ----------
+# ================== OUTPUT ==================
+
+OUTPUTS = {
+    "tension": [
+        "Похоже, сейчас внутри есть напряжение\n\nОбычно оно появляется там, где есть контроль\n\nИногда достаточно просто это заметить"
+    ],
+    "warm": [
+        "Здесь есть тепло\n\nЭто состояние контакта\n\nЕго не нужно усиливать"
+    ],
+    "calm": [
+        "Здесь есть спокойствие\n\nЭто внутренняя устойчивость\n\nМожно не спешить"
+    ],
+    "heavy": [
+        "В этом есть тяжесть\n\nВозможно, накопилось слишком много\n\nСейчас важно не добавлять"
+    ],
+    "empty": [
+        "В этом есть пустота\n\nИногда это пауза, а не проблема\n\nЭто тоже часть процесса"
+    ],
+}
+
+
+# ================== FLOW ==================
 
 async def send_mak_entry(update, context):
-    context.user_data["mak_step"] = 0
-    context.user_data["mak_cards"] = []
+    reset_state(context)
 
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=(
             "*Метафорические карты*\n\n"
-            "Иногда одна карта попадает точнее, чем длинный разговор.\n"
-            "Подумай сейчас о том что тебя больше всего волнует\n"
-            "Вытяни 3 карты и посмотри, что они откроют тебе."
+            "Посмотри на карту внимательно\n\n"
+            "Не ищи правильный ответ\n\n"
+            "Заметь, что откликнулось первым"
         ),
         parse_mode="Markdown",
         reply_markup=start_keyboard(),
     )
 
 
-# ---------- SEND CARD ----------
+async def send_card(update, context):
+    image = pick_card()
 
-async def send_card(update, context, step):
-    card = pick_card()
-
-    if not card:
+    if not image:
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text="Карты временно недоступны",
         )
         return
 
-    context.user_data["mak_cards"].append(card)
-    context.user_data["mak_step"] = step
+    context.user_data["mak"]["card"] = image
 
-    with open(card["image"], "rb") as photo:
+    with open(image, "rb") as photo:
         await context.bot.send_photo(
             chat_id=update.effective_chat.id,
             photo=InputFile(photo),
-            caption="Посмотри внимательно на карту.\nЧто ты чувствуешь?",
-            reply_markup=reveal_keyboard(step),
+            caption="Посмотри внимательно\n\nЧто откликнулось первым?",
+            reply_markup=type_keyboard(),
         )
 
 
-# ---------- REVEAL ----------
-
-async def reveal_card(update, context, step):
-    card = context.user_data["mak_cards"][step - 1]
-
-    text = (
-        f"{card['meaning']}\n\n"
-        f"*Вопрос:*\n{card['question']}"
-    )
-
-    if step == 3:
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=(
-                f"{text}\n\n"
-                "Это был твой расклад на ситуацию.\n\n"
-                "Не спеши искать правильный ответ.\n"
-                "Сначала просто посмотри, что внутри отзывается."
-            ),
-            parse_mode="Markdown",
-            reply_markup=final_keyboard(),
-        )
-    else:
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=text,
-            parse_mode="Markdown",
-            reply_markup=next_keyboard(step),
-        )
-
-
-# ---------- CALLBACK ----------
+# ================== CALLBACK ==================
 
 async def handle_mak_callback(update, context):
     query = update.callback_query
@@ -153,32 +173,67 @@ async def handle_mak_callback(update, context):
     except:
         pass
 
-    if data == "mak_restart":
-        await send_mak_entry(update, context)
+    state = get_state(context)
+
+    # старт
+    if data == "mak_draw":
+        await send_card(update, context)
         return True
 
-    if data == "mak_finish":
+    # тип
+    if data.startswith("mak_type_"):
+        state["type"] = data.split("_")[-1]
+
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Ты можешь вернуться к этому позже.",
+            text="Что это за состояние?",
+            reply_markup=feeling_keyboard(),
         )
         return True
 
-    if data == "mak_1":
-        await send_card(update, context, 1)
+    # база
+    if data.startswith("mak_base_"):
+        base = data.split("_")[-1]
+        state["base"] = base
+
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Уточни",
+            reply_markup=sub_keyboard(base),
+        )
         return True
 
-    if data == "mak_2":
-        await send_card(update, context, 2)
+    # уточнение
+    if data.startswith("mak_sub_"):
+        state["sub"] = data.replace("mak_sub_", "")
+
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Где это есть в твоей жизни?",
+            reply_markup=life_keyboard(),
+        )
         return True
 
-    if data == "mak_3":
-        await send_card(update, context, 3)
+    # жизнь
+    if data.startswith("mak_life_"):
+        state["life"] = data
+
+        base = state.get("base")
+        text = random.choice(OUTPUTS.get(base, ["Просто заметь это состояние"]))
+
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=text,
+            reply_markup=final_keyboard(),
+        )
         return True
 
-    if data.startswith("mak_reveal_"):
-        step = int(data.split("_")[-1])
-        await reveal_card(update, context, step)
+    # завершить
+    if data == "mak_finish":
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Ты можешь вернуться к этому позже",
+        )
         return True
 
     return False
