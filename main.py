@@ -21,6 +21,10 @@ from flows.paid_block.balance_wheel_flow import (
 )
 from flows.paid_block.deep_profile_flow import handle_paid_callback
 from flows.paid_block.mak_flow import send_mak_entry, handle_mak_callback
+from flows.paid_block.hellinger_flow import (
+    send_hellinger_entry,
+    handle_hellinger_callback,
+)
 from flows.paid_block.paid_access import has_paid_access
 from flows.paid_block.payment_flow import (
     send_deep_profile_invoice,
@@ -187,6 +191,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Сбросить мои тесты",
         "⚖️ Колесо баланса",
         "🃏 Метафорические карты (МАК)",
+        "🌿 Расстановки (Берт Хеллингер)",
     } or is_space_tool_text(text):
         clear_balance_wheel_state(user_id)
 
@@ -208,6 +213,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == "🃏 Метафорические карты (МАК)":
         await send_mak_entry(update, context)
+        return
+
+    if text == "🌿 Расстановки (Берт Хеллингер)":
+        await send_hellinger_entry(update, context)
         return
 
     if is_space_tool_text(text):
@@ -306,6 +315,10 @@ async def handle_all_callbacks(update: Update, context: ContextTypes.DEFAULT_TYP
 
     user = update.effective_user
     user_id = user.id if user else "unknown"
+
+    handled_by_hellinger = await handle_hellinger_callback(update, context)
+    if handled_by_hellinger:
+        return
 
     handled_by_mak = await handle_mak_callback(update, context)
     if handled_by_mak:
