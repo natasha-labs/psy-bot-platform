@@ -1,19 +1,9 @@
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
 
-# ================= STATE =================
-
 def reset_state(context):
-    context.user_data["hellinger"] = {
-        "stage": "intro"
-    }
+    context.user_data["hellinger"] = {"stage": "intro"}
 
-
-def get_state(context):
-    return context.user_data.get("hellinger", {})
-
-
-# ================= KEYBOARDS =================
 
 def kb_start():
     return InlineKeyboardMarkup([
@@ -69,8 +59,6 @@ def kb_finish():
     ])
 
 
-# ================= ENTRY =================
-
 async def send_hellinger_entry(update, context):
     reset_state(context)
 
@@ -88,8 +76,6 @@ async def send_hellinger_entry(update, context):
     )
 
 
-# ================= FLOW =================
-
 async def handle_hellinger_callback(update, context):
     query = update.callback_query
     data = query.data
@@ -101,26 +87,26 @@ async def handle_hellinger_callback(update, context):
 
     chat_id = update.effective_chat.id
 
-    # вход
     if data == "h_start":
         await context.bot.send_message(
             chat_id=chat_id,
             text=(
-                "Это практика через предметы.\n"
-                "Каждый предмет — это фигура.\n"
-                "Подготовь 5–10 предметов.\n"
-                "Ставь их так, как ощущается.\n\n"
+                "Это практика через предметы.\n\n"
+                "Каждый предмет — это фигура.\n\n"
+                "Подготовь 5–10 предметов.\n\n"
+                "Ставь их так, как ощущается.\n"
+                "Это уже картина ситуации.\n\n"
                 "Касание = вход\n"
-                "Убрал руку = выход\n"
+                "Убрал руку = выход\n\n"
                 "Можно двигать.\n"
                 "Можно добавлять.\n\n"
-                "Не нужно ничего специально чувствовать. Просто смотри."
+                "Не нужно ничего специально чувствовать.\n"
+                "Просто смотри."
             ),
             reply_markup=kb_begin(),
         )
         return True
 
-    # тема
     if data == "h_begin":
         await context.bot.send_message(
             chat_id=chat_id,
@@ -129,7 +115,6 @@ async def handle_hellinger_callback(update, context):
         )
         return True
 
-    # постановка
     if data.startswith("h_theme_"):
         await context.bot.send_message(
             chat_id=chat_id,
@@ -149,7 +134,6 @@ async def handle_hellinger_callback(update, context):
         )
         return True
 
-    # считывание
     if data == "h_touch":
         await context.bot.send_message(
             chat_id=chat_id,
@@ -161,7 +145,6 @@ async def handle_hellinger_callback(update, context):
         )
         return True
 
-    # есть реакция → движение
     if data == "h_react_yes":
         await context.bot.send_message(
             chat_id=chat_id,
@@ -175,7 +158,6 @@ async def handle_hellinger_callback(update, context):
         )
         return True
 
-    # нет реакции
     if data == "h_react_no":
         await context.bot.send_message(
             chat_id=chat_id,
@@ -188,7 +170,6 @@ async def handle_hellinger_callback(update, context):
         )
         return True
 
-    # завершение
     if data == "h_finish":
         await context.bot.send_message(
             chat_id=chat_id,
@@ -202,7 +183,6 @@ async def handle_hellinger_callback(update, context):
         )
         return True
 
-    # выход
     if data == "h_exit":
         from flows.paid_block.paid_space_flow import send_space_menu_text
         await send_space_menu_text(update, context)
