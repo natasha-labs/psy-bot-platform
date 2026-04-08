@@ -55,7 +55,7 @@ QUESTIONS = [
     {
         "type": "text",
         "key": "meaning",
-        "question": "Напиши несколько слов, что в этой сфере жизни для вас важно.",
+        "question": "Напиши несколько слов, что в этой сфере жизни для тебя важно.",
     },
 ]
 
@@ -127,7 +127,7 @@ def _advance(state: dict):
 def _ensure_sphere_data(state: dict, sphere: str):
     if sphere not in state["answers"]:
         state["answers"][sphere] = {
-            "summary_lines": [f"Сфера {state['sphere_index'] + 1} из {len(SPHERES)}: {sphere}", ""],
+            "summary_lines": [],
             "satisfaction": 1,
             "importance": 1,
             "action": 1,
@@ -137,14 +137,43 @@ def _ensure_sphere_data(state: dict, sphere: str):
 
 def _append_summary(state: dict, sphere: str, question_text: str, answer_text: str):
     _ensure_sphere_data(state, sphere)
-    state["answers"][sphere]["summary_lines"].append(question_text)
-    state["answers"][sphere]["summary_lines"].append(f"Ответ: {answer_text}")
-    state["answers"][sphere]["summary_lines"].append("")
+    state["answers"][sphere]["summary_lines"].append((question_text, answer_text))
 
 
 def _get_summary_text(state: dict, sphere: str) -> str:
     _ensure_sphere_data(state, sphere)
-    return "\n".join(state["answers"][sphere]["summary_lines"]).strip()
+    items = state["answers"][sphere]["summary_lines"]
+
+    if not items:
+        return f"**Сфера {state['sphere_index'] + 1} из {len(SPHERES)}: {sphere}**"
+
+    lines = [f"**Сфера {state['sphere_index'] + 1} из {len(SPHERES)}: {sphere}**", ""]
+    for question_text, answer_text in items:
+        lines.append(f"**{question_text}**")
+        lines.append(f"Ответ: {answer_text}")
+        lines.append("")
+
+    return "\n".join(lines).strip()
+
+
+def _build_question_text(state: dict, sphere: str, question: dict) -> str:
+    summary_text = _get_summary_text(state, sphere)
+
+    if question["type"] == "choice":
+        return (
+            f"{summary_text}\n\n"
+            f"━━━━━━━━━━━━━━\n\n"
+            f"**{question['question']}**"
+        )
+
+    hint = SPHERE_HINTS.get(sphere, "")
+    return (
+        f"{summary_text}\n\n"
+        f"━━━━━━━━━━━━━━\n\n"
+        f"**{question['question']}**\n\n"
+        f"✍️ Напиши ответ в строке сообщения ниже.\n\n"
+        f"Можно ориентироваться на примеры: {hint}"
+    )
 
 
 def _save_balance_wheel_result(user_id, raw_data, main_problem=None, resource_area=None):
@@ -195,24 +224,22 @@ async def _send_current_step(chat_id: int, user_id, bot):
         return
 
     _ensure_sphere_data(state, sphere)
-    summary_text = _get_summary_text(state, sphere)
+    text = _build_question_text(state, sphere, question)
 
     if question["type"] == "choice":
-        text = f"{summary_text}\n\n{question['question']}"
         await bot.send_message(
             chat_id=chat_id,
             text=text,
             reply_markup=_build_choice_keyboard(question["options"]),
+            parse_mode="Markdown",
         )
         return
 
-    hint = SPHERE_HINTS.get(sphere, "")
-    text = (
-        f"{summary_text}\n\n"
-        f"{question['question']}\n\n"
-        f"Можно ориентироваться на примеры: ({hint})"
+    await bot.send_message(
+        chat_id=chat_id,
+        text=text,
+        parse_mode="Markdown",
     )
-    await bot.send_message(chat_id=chat_id, text=text)
 
 
 async def start_balance_wheel(message):
@@ -235,7 +262,8 @@ async def start_balance_wheel(message):
 
     await bot.send_message(
         chat_id=message.chat_id,
-        text="Колесо баланса",
+        text="**Колесо баланса**",
+        parse_mode="Markdown",
     )
 
     await _send_current_step(message.chat_id, user_id, bot)
@@ -268,7 +296,7 @@ async def handle_balance_wheel_text(update: Update, context: ContextTypes.DEFAUL
 
     answer_text = (update.message.text or "").strip()
     if not answer_text:
-        await update.message.reply_text("Напиши ответ обычным сообщением.")
+        await update.message.reply_text("✍️ Напиши ответ обычным сообщением в строке ниже.")
         return True
 
     _ensure_sphere_data(state, sphere)
@@ -276,7 +304,10 @@ async def handle_balance_wheel_text(update: Update, context: ContextTypes.DEFAUL
     _append_summary(state, sphere, question["question"], answer_text)
 
     finished_sphere_text = _get_summary_text(state, sphere)
-    await update.message.reply_text(finished_sphere_text)
+    await update.message.reply_text(
+        finished_sphere_text,
+        parse_mode="Markdown",
+    )
 
     _advance(state)
     _set_state(user_id, state)
@@ -325,7 +356,10 @@ async def handle_balance_wheel_callback(update: Update, context: ContextTypes.DE
         _append_summary(state, sphere, question["question"], answer_text)
 
         try:
-            await query.edit_message_text(_get_summary_text(state, sphere))
+            await query.edit_message_text(
+                _get_summary_text(state, sphere),
+                parse_mode="Markdown",
+            )
         except Exception:
             pass
 
@@ -354,8 +388,9 @@ async def handle_balance_wheel_callback(update: Update, context: ContextTypes.DE
 
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="В какой сфере у тебя сейчас больше всего энергии?",
+            text="**В какой сфере у тебя сейчас больше всего энергии?**",
             reply_markup=_build_resource_keyboard(),
+            parse_mode="Markdown",
         )
         return True
 
@@ -376,7 +411,8 @@ async def handle_balance_wheel_callback(update: Update, context: ContextTypes.DE
 
         try:
             await query.edit_message_text(
-                text=f"В какой сфере у тебя сейчас больше всего энергии?\nОтвет: {resource_area}"
+                text=f"**В какой сфере у тебя сейчас больше всего энергии?**\nОтвет: {resource_area}",
+                parse_mode="Markdown",
             )
         except Exception:
             pass
