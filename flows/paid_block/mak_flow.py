@@ -29,21 +29,9 @@ def start_keyboard():
     ])
 
 
-def next_from_card_keyboard():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Дальше", callback_data="mak_step_contact")]
-    ])
-
-
-def next_from_contact_keyboard():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Дальше", callback_data="mak_step_life")]
-    ])
-
-
 def final_keyboard():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Ещё карта", callback_data="mak_draw")],
+        [InlineKeyboardButton("Вытянуть новую карту", callback_data="mak_draw")],
         [InlineKeyboardButton("Назад в пространство", callback_data="mak_finish")],
     ])
 
@@ -112,16 +100,8 @@ async def send_card(update, context):
                 "Это может быть мысль, ощущение, образ или просто состояние.\n\n"
                 "Этого достаточно."
             ),
-            reply_markup=next_from_card_keyboard(),
+            reply_markup=final_keyboard(),
         )
-
-
-async def send_contact_step(update, context):
-    return True
-
-
-async def send_life_step(update, context):
-    return True
 
 
 async def handle_mak_callback(update, context):
@@ -142,14 +122,6 @@ async def handle_mak_callback(update, context):
     if data == "mak_draw":
         reset_state(context)
         await send_card(update, context)
-        return True
-
-    if data == "mak_step_contact":
-        await send_contact_step(update, context)
-        return True
-
-    if data == "mak_step_life":
-        await send_life_step(update, context)
         return True
 
     if data == "mak_finish":
