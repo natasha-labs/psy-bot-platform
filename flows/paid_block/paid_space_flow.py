@@ -6,7 +6,7 @@ SPACE_TOOL_NAMES = {
     "🌿 Расстановки (Берт Хеллингер)",
     "🃏 Метафорические карты (МАК)",
     "⚖️ Колесо баланса",
-    "🔺 Роли в отношениях (Треугольник Карпмана)",
+    "🧠 Драматический треугольник Карпмана",
     "🧠 Схематерапия (Джеффри Янг)",
     "🎭 Внутренние семейные системы IFS (Ричард Шварц)",
 }
@@ -20,7 +20,7 @@ def get_space_menu_keyboard(user_id=None):
     rows = [
         ["🌿 Расстановки (Берт Хеллингер)", "🃏 Метафорические карты (МАК)"],
         ["🎭 Внутренние семейные системы IFS (Ричард Шварц)", "⚖️ Колесо баланса"],
-        ["🔺 Роли в отношениях (Треугольник Карпмана)", "🧠 Схематерапия (Джеффри Янг)"],
+        ["🧠 Драматический треугольник Карпмана", "🧠 Схематерапия (Джеффри Янг)"],
         ["ℹ️ О пространстве", "🔄 Назад"],
     ]
 
@@ -39,10 +39,17 @@ async def send_space_menu_text(update, context):
     user = update.effective_user
     user_id = user.id if user else None
 
-    await update.message.reply_text(
-        "Выбери, с чем хочешь поработать сегодня:",
-        reply_markup=get_space_menu_keyboard(user_id),
-    )
+    if update.message:
+        await update.message.reply_text(
+            "Выбери, с чем хочешь поработать сегодня:",
+            reply_markup=get_space_menu_keyboard(user_id),
+        )
+    else:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Выбери, с чем хочешь поработать сегодня:",
+            reply_markup=get_space_menu_keyboard(user_id),
+        )
 
 
 async def send_about_space(update, context):
@@ -81,10 +88,19 @@ async def send_tool_stub(update, context, tool_name: str):
     user = update.effective_user
     user_id = user.id if user else None
 
-    # 👇 ВАЖНО: МАК не должен идти в stub
     if tool_name == "🃏 Метафорические карты (МАК)":
         from flows.paid_block.mak_flow import send_mak_entry
         await send_mak_entry(update, context)
+        return
+
+    if tool_name == "🌿 Расстановки (Берт Хеллингер)":
+        from flows.paid_block.hellinger_flow import send_hellinger_entry
+        await send_hellinger_entry(update, context)
+        return
+
+    if tool_name == "🧠 Драматический треугольник Карпмана":
+        from flows.paid_block.karpman_flow import send_karpman_entry
+        await send_karpman_entry(update, context)
         return
 
     text = (
