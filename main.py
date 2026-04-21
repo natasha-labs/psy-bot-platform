@@ -1,7 +1,7 @@
 import os
 import time
 
-from telegram import Update, ReplyKeyboardMarkup
+from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -24,6 +24,10 @@ from flows.paid_block.mak_flow import send_mak_entry, handle_mak_callback
 from flows.paid_block.hellinger_flow import (
     send_hellinger_entry,
     handle_hellinger_callback,
+)
+from flows.paid_block.karpman_flow import (
+    send_karpman_entry,
+    handle_karpman_callback,
 )
 from flows.paid_block.paid_access import has_paid_access
 from flows.paid_block.payment_flow import (
@@ -62,6 +66,10 @@ if not TOKEN:
 START_KEYBOARD = ReplyKeyboardMarkup(
     [["Начать"]],
     resize_keyboard=True,
+)
+
+START_INLINE_KEYBOARD = InlineKeyboardMarkup(
+    [[InlineKeyboardButton("СТАРТ", callback_data="app_start")]]
 )
 
 MAIN_MENU = [
@@ -119,22 +127,7 @@ def should_ignore_duplicate_start(user_id) -> bool:
     return (now - last) < START_DEBOUNCE_SECONDS
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message:
-        return
-
-    context.user_data.clear()
-
-    user = update.effective_user
-    user_id = user.id if user else "unknown"
-
-    clear_balance_wheel_state(user_id)
-
-    if should_ignore_duplicate_start(user_id):
-        return
-
-    reset_user_progress(user_id)
-
+async def _send_intro(chat_id, user_id, context: ContextTypes.DEFAULT_TYPE):
     text = (
         "Привет. Меня зовут Наташа.\n\n"
         "Я психолог и работаю в интегративном подходе. Это значит, что я не разделяю методы, "
@@ -158,9 +151,32 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Это пространство создано для твоего самопознания, в которое можно возвращаться снова и снова."
     )
 
-    await update.message.reply_text(
-        text,
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=text,
         reply_markup=get_main_menu(user_id),
+    )
+
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message:
+        return
+
+    context.user_data.clear()
+
+    user = update.effective_user
+    user_id = user.id if user else "unknown"
+
+    clear_balance_wheel_state(user_id)
+
+    if should_ignore_duplicate_start(user_id):
+        return
+
+    reset_user_progress(user_id)
+
+    await update.message.reply_text(
+        "Нажми кнопку, чтобы начать.",
+        reply_markup=START_INLINE_KEYBOARD,
     )
 
 
@@ -192,6 +208,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "⚖️ Колесо баланса",
         "🃏 Метафорические карты (МАК)",
         "🌿 Расстановки (Берт Хеллингер)",
+        "🧠 Драматический треугольник Карпмана",
     } or is_space_tool_text(text):
         clear_balance_wheel_state(user_id)
 
@@ -217,6 +234,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == "🌿 Расстановки (Берт Хеллингер)":
         await send_hellinger_entry(update, context)
+        return
+
+    if text == "🧠 Драматический треугольник Карпмана":
+        await send_karpman_entry(update, context)
         return
 
     if is_space_tool_text(text):
@@ -316,6 +337,22 @@ async def handle_all_callbacks(update: Update, context: ContextTypes.DEFAULT_TYP
     user = update.effective_user
     user_id = user.id if user else "unknown"
 
+    if data == "app_start":
+        try:
+            await query.edit_message_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+
+        context.user_data.clear()
+        clear_balance_wheel_state(user_id)
+
+        if should_ignore_duplicate_start(user_id):
+            return
+
+        reset_user_progress(user_id)
+        await _send_intro(update.effective_chat.id, user_id, context)
+        return
+
     handled_by_hellinger = await handle_hellinger_callback(update, context)
     if handled_by_hellinger:
         return
@@ -326,6 +363,10 @@ async def handle_all_callbacks(update: Update, context: ContextTypes.DEFAULT_TYP
 
     handled_by_balance = await handle_balance_wheel_callback(update, context)
     if handled_by_balance:
+        return
+
+    handled_by_karpman = await handle_karpman_callback(update, context)
+    if handled_by_karpman:
         return
 
     if data == "learn_more":
