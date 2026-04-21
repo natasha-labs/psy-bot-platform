@@ -51,26 +51,21 @@ ROD_PRACTICE_TEXT = """Практика «Род»
 
 Можно записать или зарисовать чувства, образы и состояния, чтобы при желании к ним возвращаться.
 
-После практики не обязательно сразу «закрывать» процесс. Иногда состоянию нужно время, чтобы доработать внутри. Дай этому быть."""
+После практики не обязательно сразу «закрывать» процесс. Иногда состоянию нужно время, чтобы доработать внутри. Дай этому быть.
+
+━━━━━━━━━━━━━━
+
+Выбери следующую практику в меню ниже.
+"""
 
 
 def reset_state(context):
     context.user_data["hellinger"] = {}
 
 
-def get_state(context):
-    return context.user_data.get("hellinger", {})
-
-
 def kb_rod_start():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("Начать практику", callback_data="h_rod_start")]
-    ])
-
-
-def kb_back_to_space():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Назад в пространство", callback_data="h_back_to_space")]
     ])
 
 
@@ -99,19 +94,11 @@ async def handle_hellinger_callback(update, context):
     except Exception:
         pass
 
-    chat_id = update.effective_chat.id
-
     if data == "h_rod_start":
         await context.bot.send_message(
-            chat_id=chat_id,
+            chat_id=update.effective_chat.id,
             text=ROD_PRACTICE_TEXT,
-            reply_markup=kb_back_to_space(),
         )
-        return True
-
-    if data == "h_back_to_space":
-        from flows.paid_block.paid_space_flow import send_space_menu_text
-        await send_space_menu_text(update, context)
         return True
 
     return False
