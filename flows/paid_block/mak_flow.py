@@ -19,10 +19,6 @@ def reset_state(context):
     }
 
 
-def get_state(context):
-    return context.user_data.get("mak", {})
-
-
 def start_keyboard():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("Открыть карту", callback_data="mak_draw")]
@@ -32,7 +28,6 @@ def start_keyboard():
 def final_keyboard():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("Вытянуть новую карту", callback_data="mak_draw")],
-        [InlineKeyboardButton("Назад в пространство", callback_data="mak_finish")],
     ])
 
 
@@ -98,7 +93,9 @@ async def send_card(update, context):
                 "━━━━━━━━━━━━━━\n\n"
                 "Обрати внимание, с чем ты сейчас остаёшься.\n\n"
                 "Это может быть мысль, ощущение, образ или просто состояние.\n\n"
-                "Этого достаточно."
+                "Этого достаточно.\n\n"
+                "━━━━━━━━━━━━━━\n\n"
+                "Выбери следующую практику в меню ниже."
             ),
             reply_markup=final_keyboard(),
         )
@@ -122,11 +119,6 @@ async def handle_mak_callback(update, context):
     if data == "mak_draw":
         reset_state(context)
         await send_card(update, context)
-        return True
-
-    if data == "mak_finish":
-        from flows.paid_block.paid_space_flow import send_space_menu_text
-        await send_space_menu_text(update, context)
         return True
 
     return False
